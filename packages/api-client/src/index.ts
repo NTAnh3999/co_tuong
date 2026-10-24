@@ -1,4 +1,6 @@
 import {
+  createAiGameRequestSchema,
+  createAiGameResponseSchema,
   createGuestRequestSchema,
   createGuestResponseSchema,
   createRoomRequestSchema,
@@ -18,6 +20,8 @@ import {
   updateMeResponseSchema,
 } from '@xq/shared-contracts';
 import type {
+  CreateAiGameRequest,
+  CreateAiGameResponse,
   CreateGuestRequest,
   CreateGuestResponse,
   CreateRoomRequest,
@@ -66,6 +70,7 @@ export interface ApiClient {
   getGameMoves(id: string, query?: GetGameMovesQuery): Promise<GetGameMovesResponse>;
   resignGame(id: string): Promise<ResignGameResponse>;
   offerDraw(id: string, payload: DrawOfferRequest): Promise<DrawOfferResponse>;
+  createAiGame(payload: CreateAiGameRequest): Promise<CreateAiGameResponse>;
 }
 
 type Schema<T> = z.ZodType<T>;
@@ -177,6 +182,10 @@ export function createApiClient({ baseUrl }: ApiClientOptions): ApiClient {
     async offerDraw(id, payload) {
       const validPayload = drawOfferRequestSchema.parse(payload);
       return request(`/games/${encodeURIComponent(id)}/draw-offer`, 'POST', drawOfferResponseSchema, validPayload);
+    },
+    async createAiGame(payload) {
+      const validPayload = createAiGameRequestSchema.parse(payload);
+      return request('/games/ai', 'POST', createAiGameResponseSchema, validPayload);
     },
   };
 }

@@ -41,6 +41,12 @@ export const resignGameResponseSchema = gameSnapshotSchema;
 export const drawOfferRequestSchema = z.object({ action: z.enum(['offer', 'accept', 'decline']) });
 export const drawOfferResponseSchema = gameSnapshotSchema;
 
+export const createAiGameRequestSchema = z.object({
+  color: z.enum(['red', 'black']),
+  difficulty: z.enum(['easy', 'medium', 'hard']),
+});
+export const createAiGameResponseSchema = z.object({ gameId: z.string() });
+
 export type CreateGuestRequest = z.infer<typeof createGuestRequestSchema>;
 export type CreateGuestResponse = z.infer<typeof createGuestResponseSchema>;
 export type GetMeResponse = z.infer<typeof getMeResponseSchema>;
@@ -58,3 +64,5 @@ export type GetGameMovesResponse = z.infer<typeof getGameMovesResponseSchema>;
 export type ResignGameResponse = z.infer<typeof resignGameResponseSchema>;
 export type DrawOfferRequest = z.infer<typeof drawOfferRequestSchema>;
 export type DrawOfferResponse = z.infer<typeof drawOfferResponseSchema>;
+export type CreateAiGameRequest = z.infer<typeof createAiGameRequestSchema>;
+export type CreateAiGameResponse = z.infer<typeof createAiGameResponseSchema>;

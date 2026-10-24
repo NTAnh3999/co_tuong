@@ -37,6 +37,12 @@ enum GameStatus {
   ABORTED
 }
 
+enum AiDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
 enum LessonLevel {
   BEGINNER
   INTERMEDIATE
@@ -146,6 +152,7 @@ model RoomMember {
 model Game {
   id               String         @id @default(cuid())
   mode             GameMode
+  aiDifficulty     AiDifficulty?
   redId            String?
   red              User?          @relation("RedPlayer", fields: [redId], references: [id])
   blackId          String?

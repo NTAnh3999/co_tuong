@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { GamesModule } from './modules/games/games.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { GamesModule } from './modules/games/games.module';
     SessionsModule,
     GamesModule,
     RoomsModule,
+    AiModule,
   ],
   providers: [ApiExceptionFilter],
 })

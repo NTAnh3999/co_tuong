@@ -72,7 +72,7 @@ beforeEach(() => {
   harness.controller = {
     getState: () => harness.state!,
     subscribe: (listener: () => void) => { harness.listeners.add(listener); return () => harness.listeners.delete(listener) },
-    selectSquare: vi.fn(), submitMove: vi.fn(), flip: vi.fn(), resign: vi.fn(), offerDraw: vi.fn(), dispose: vi.fn(),
+    selectSquare: vi.fn(), submitMove: vi.fn(), flip: vi.fn(), resign: vi.fn(), offerDraw: vi.fn(), connect: vi.fn(), dispose: vi.fn(),
   }
 })
 
@@ -83,6 +83,15 @@ afterEach(() => {
 })
 
 describe('SYNC-03: /game/[id] online page', () => {
+  it('connects the controller on mount and disposes it on unmount', async () => {
+    const view = await renderGame()
+    expect(harness.controller).toHaveProperty('connect')
+    expect((harness.controller as { connect: ReturnType<typeof vi.fn> }).connect).toHaveBeenCalledOnce()
+
+    view.unmount()
+    expect((harness.controller as { dispose: ReturnType<typeof vi.fn> }).dispose).toHaveBeenCalledOnce()
+  })
+
   it('renders the board non-interactive for a spectator', async () => {
     await renderGame()
     await waitFor(() => expect(screen.getByRole('grid')).toHaveAttribute('tabindex', '-1'))

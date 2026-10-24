@@ -9,6 +9,7 @@ const room = {
   timeControl: { initialMs: 600_000, incrementMs: 5_000 },
   members: [{ userId: 'user-1', nickname: 'Xe', color: 'red' as const, isHost: true }],
   gameId: null,
+  rematchVotes: [],
 };
 
 function jsonResponse(body: unknown, status = 200): Response {

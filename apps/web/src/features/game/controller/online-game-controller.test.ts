@@ -6,6 +6,7 @@ import type { GameSnapshot } from '@xq/shared-contracts';
 const socketMock = vi.hoisted(() => ({
   handlers: undefined as GameSocketHandlers | undefined,
   methods: {
+    connect: vi.fn(),
     joinGame: vi.fn(),
     submitMove: vi.fn(),
     resign: vi.fn(),
@@ -106,6 +107,21 @@ describe('SYNC-03: OnlineGameController', () => {
     expect(socketMock.methods.joinGame).toHaveBeenLastCalledWith('game-1');
     expect(controller.getState().connectionStatus).toBe('connected');
     controller.dispose();
+  });
+
+  it('connects on demand and removes its visibility listener when disposed', () => {
+    const addListener = vi.spyOn(document, 'addEventListener');
+    const removeListener = vi.spyOn(document, 'removeEventListener');
+    const controller = createOnlineGameController('game-1', 'http://api');
+
+    controller.connect();
+    expect(socketMock.methods.connect).toHaveBeenCalledOnce();
+    expect(addListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+
+    controller.dispose();
+    expect(removeListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+    addListener.mockRestore();
+    removeListener.mockRestore();
   });
 
   it('requests resignation and a draw without changing the result locally', () => {

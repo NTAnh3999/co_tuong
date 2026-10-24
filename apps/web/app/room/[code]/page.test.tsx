@@ -7,7 +7,7 @@ import RoomPage from './page'
 
 const { push, createGameSocket, socketHandlers, socket } = vi.hoisted(() => {
   const handlers: { current?: { onConnect?: () => void; onRoomState?: (room: unknown) => void } } = {}
-  const mockSocket = { joinRoom: vi.fn(), disconnect: vi.fn() }
+  const mockSocket = { connect: vi.fn(), joinRoom: vi.fn(), disconnect: vi.fn() }
   return {
     push: vi.fn(),
     socketHandlers: handlers,
@@ -55,6 +55,7 @@ describe('/room/[code]', () => {
     await waitFor(() => expect(apiClient.joinRoom).toHaveBeenCalledOnce())
     expect(apiClient.joinRoom).toHaveBeenCalledWith('ABCD12')
     await waitFor(() => expect(createGameSocket).toHaveBeenCalledWith('http://localhost:3001', expect.any(Object)))
+    expect(socket.connect).toHaveBeenCalledOnce()
     act(() => socketHandlers.current?.onConnect?.())
     expect(socket.joinRoom).toHaveBeenCalledWith('room-id-1')
   })

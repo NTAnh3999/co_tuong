@@ -16,6 +16,7 @@ export interface GameSocketHandlers {
 }
 
 export interface GameSocket {
+  connect(): void;
   joinRoom(roomId: string): void;
   joinGame(gameId: string): void;
   submitMove(payload: ClientPayload<'game:move'>): void;
@@ -32,7 +33,7 @@ export function createGameSocket(baseUrl: string, handlers: GameSocketHandlers):
   // typing comes from this variable's explicit annotation, not from `io<...>()`.
   const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(baseUrl, {
     withCredentials: true,
-    autoConnect: true,
+    autoConnect: false,
   });
 
   socket.on('connect', () => handlers.onConnect?.());
@@ -44,6 +45,9 @@ export function createGameSocket(baseUrl: string, handlers: GameSocketHandlers):
   socket.on('game:finished', (payload) => handlers.onGameFinished?.(payload));
 
   return {
+    connect() {
+      socket.connect();
+    },
     joinRoom(roomId) {
       socket.emit('room:join', { roomId });
     },

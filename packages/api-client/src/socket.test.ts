@@ -4,6 +4,7 @@ const { fakeSocket, ioMock, listeners } = vi.hoisted(() => {
   const listeners = new Map<string, (...args: unknown[]) => void>();
   const fakeSocket = {
     connected: false,
+    connect: vi.fn(),
     emit: vi.fn(),
     on: vi.fn((event: string, callback: (...args: unknown[]) => void) => {
       listeners.set(event, callback);
@@ -21,6 +22,7 @@ import { createGameSocket } from './socket.js';
 describe('createGameSocket', () => {
   beforeEach(() => {
     fakeSocket.connected = false;
+    fakeSocket.connect.mockClear();
     fakeSocket.emit.mockClear();
     fakeSocket.on.mockClear();
     fakeSocket.disconnect.mockClear();
@@ -28,13 +30,21 @@ describe('createGameSocket', () => {
     listeners.clear();
   });
 
-  it('creates a credentialed, automatically connecting socket', () => {
+  it('creates a credentialed socket without connecting until requested', () => {
     createGameSocket('https://example.test', {});
 
     expect(ioMock).toHaveBeenCalledWith('https://example.test', {
       withCredentials: true,
-      autoConnect: true,
+      autoConnect: false,
     });
+  });
+
+  it('connects the socket when requested', () => {
+    const gameSocket = createGameSocket('https://example.test', {});
+
+    gameSocket.connect();
+
+    expect(fakeSocket.connect).toHaveBeenCalledOnce();
   });
 
   it('emits each outbound event with its contract event name and payload', () => {
@@ -108,8 +118,10 @@ describe('createGameSocket', () => {
     const gameSocket = createGameSocket('https://example.test', {});
 
     expect(gameSocket.connected).toBe(false);
+    gameSocket.connect();
     gameSocket.disconnect();
 
+    expect(fakeSocket.connect).toHaveBeenCalledOnce();
     expect(fakeSocket.disconnect).toHaveBeenCalledOnce();
   });
 });

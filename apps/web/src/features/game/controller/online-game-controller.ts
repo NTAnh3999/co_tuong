@@ -23,6 +23,7 @@ export interface OnlineGameControllerState extends GameControllerState {
 
 export interface OnlineGameController extends GameController {
   getState(): OnlineGameControllerState;
+  connect(): void;
   dispose(): void;
 }
 
@@ -120,6 +121,7 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
     },
   };
   socket = createGameSocket(apiBaseUrl, handlers);
+  let observingVisibility = false;
 
   const submitMove = (move: Move): boolean => {
     const state = store.getState();
@@ -168,7 +170,6 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
   const onVisibilityChange = (): void => {
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') socket.joinGame(gameId);
   };
-  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibilityChange);
 
   return {
     getState: store.getState,
@@ -178,8 +179,18 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
     flip,
     resign,
     offerDraw,
+    connect() {
+      if (typeof document !== 'undefined' && !observingVisibility) {
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        observingVisibility = true;
+      }
+      socket.connect();
+    },
     dispose() {
-      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (typeof document !== 'undefined' && observingVisibility) {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        observingVisibility = false;
+      }
       socket.disconnect();
     },
   };

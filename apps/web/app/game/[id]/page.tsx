@@ -72,7 +72,10 @@ function ReadyOnlineGame({ gameId, userId, roomCode }: { gameId: string; userId:
   const state = useSyncExternalStore(controller.subscribe, controller.getState, controller.getState)
   const captured = useCapturedPieces(state.history)
 
-  useEffect(() => () => controller.dispose(), [controller])
+  useEffect(() => {
+    controller.connect()
+    return () => controller.dispose()
+  }, [controller])
 
   useEffect(() => {
     if (state.lastRejection === null) return

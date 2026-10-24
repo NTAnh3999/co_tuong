@@ -51,6 +51,7 @@ export default function RoomPage({ params }: RoomPageProps) {
           onConnect: () => socketRef.current?.joinRoom(snapshot.roomId),
           onRoomState: (nextRoom) => setRoom(nextRoom),
         })
+        socketRef.current.connect()
       } catch (cause) {
         if (!active) return
         setError(cause instanceof ApiClientError ? cause.message : cause instanceof Error ? cause.message : 'Không thể mở phòng lúc này.')

@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { applyMove, CASUAL_RULESET, decodeMove, encodeMove, fromFen, toFen } from '@xq/xiangqi-core';
+import { applyMove, CASUAL_RULESET, decodeMove, encodeMove, evaluateGame, fromFen, toFen } from '@xq/xiangqi-core';
 import type { Color, Move } from '@xq/xiangqi-core';
 import type { ClockState, GameSnapshot, TimeControl } from '@xq/shared-contracts';
 import { createGameAggregate, submitMove } from './domain/game-aggregate.js';
@@ -85,16 +85,107 @@ export class GamesService {
   }
 
   async getSnapshot(gameId: string): Promise<GameSnapshot> {
-    const [game, state] = await Promise.all([
-      this.prisma.game.findUniqueOrThrow({ where: { id: gameId } }),
-      this.reconstruct(this.prisma, gameId),
-    ]);
+    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) throw new NotFoundException('GAME_NOT_FOUND');
+    const state = await this.reconstruct(this.prisma, gameId);
     return {
       gameId, status: state.status, initialFen: state.initialFen,
       moves: state.moves.map(encodeMove), gameVersion: state.gameVersion, clocks: state.clock,
       result: state.result,
       redPlayerId: game.redId, blackPlayerId: game.blackId, serverNow: Date.now(),
     };
+  }
+
+  async getPlayers(gameId: string): Promise<{ redId: string | null; blackId: string | null }> {
+    const game = await this.prisma.game.findUnique({ where: { id: gameId }, select: { redId: true, blackId: true } });
+    if (!game) throw new NotFoundException('GAME_NOT_FOUND');
+    return game;
+  }
+
+  async getMoves(gameId: string, cursor: number, limit: number) {
+    const game = await this.prisma.game.findUnique({ where: { id: gameId }, select: { id: true } });
+    if (!game) throw new NotFoundException('GAME_NOT_FOUND');
+    const rows = await this.prisma.gameMove.findMany({
+      where: { gameId, ply: { gt: cursor } }, orderBy: { ply: 'asc' }, take: limit + 1,
+      select: { ply: true, uci: true, clockAfterMs: true },
+    });
+    const hasMore = rows.length > limit;
+    const moves = rows.slice(0, limit);
+    return {
+      moves,
+      nextCursor: hasMore ? String(moves.at(-1)!.ply) : null,
+    };
+  }
+
+  async listForUser(userId: string) {
+    const games = await this.prisma.game.findMany({
+      where: { OR: [{ redId: userId }, { blackId: userId }] },
+      orderBy: { createdAt: 'desc' }, take: 100,
+      select: {
+        id: true, redId: true, blackId: true, status: true, resultWinner: true, resultReason: true,
+        red: { select: { id: true, nickname: true } }, black: { select: { id: true, nickname: true } },
+      },
+    });
+    return { games: games.map((game) => ({
+      gameId: game.id,
+      opponent: game.redId === userId ? game.black : game.red,
+      status: game.status,
+      result: game.resultReason === null ? null : {
+        winner: game.resultWinner === null ? null : game.resultWinner === 'RED' ? 'red' : 'black',
+        reason: game.resultReason,
+      },
+    })) };
+  }
+
+  async resign(gameId: string, color: Color): Promise<GameSnapshot> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
+      const state = await this.reconstruct(tx, gameId);
+      if (state.status !== 'ACTIVE') throw new ConflictException('GAME_NOT_ACTIVE');
+      const result = evaluateGame({
+        initialFen: state.initialFen, moves: state.moves, ruleSetVersion: CASUAL_RULESET.version,
+        terminalEvent: { type: 'RESIGNATION', loser: color },
+      }, CASUAL_RULESET);
+      if (result === null) throw new ConflictException('GAME_NOT_ACTIVE');
+      await tx.game.update({ where: { id: gameId }, data: {
+        status: 'FINISHED', gameVersion: state.gameVersion + 1,
+        resultWinner: result.winner === null ? null : result.winner === 'red' ? 'RED' : 'BLACK',
+        resultReason: result.reason, finishedAt: new Date(), drawOfferBy: null, drawOfferPly: null,
+      } });
+    });
+    return this.getSnapshot(gameId);
+  }
+
+  async drawOffer(gameId: string, color: Color, action: 'offer' | 'accept' | 'decline'): Promise<GameSnapshot> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
+      const game = await tx.game.findUnique({ where: { id: gameId }, select: { drawOfferBy: true } });
+      if (!game) throw new NotFoundException('GAME_NOT_FOUND');
+      const state = await this.reconstruct(tx, gameId);
+      if (state.status !== 'ACTIVE') throw new ConflictException('GAME_NOT_ACTIVE');
+      if (action === 'offer') {
+        if (game.drawOfferBy !== null) throw new ConflictException('DRAW_OFFER_PENDING');
+        await tx.game.update({ where: { id: gameId }, data: { drawOfferBy: color === 'red' ? 'RED' : 'BLACK', drawOfferPly: state.moves.length } });
+        return;
+      }
+      if (game.drawOfferBy === null) throw new ConflictException('NO_DRAW_OFFER');
+      const offerer = game.drawOfferBy === 'RED' ? 'red' : 'black';
+      if (offerer === color) throw new ConflictException('DRAW_OFFERER_CANNOT_RESPOND');
+      if (action === 'decline') {
+        await tx.game.update({ where: { id: gameId }, data: { drawOfferBy: null, drawOfferPly: null } });
+        return;
+      }
+      const result = evaluateGame({
+        initialFen: state.initialFen, moves: state.moves, ruleSetVersion: CASUAL_RULESET.version,
+        terminalEvent: { type: 'DRAW_AGREEMENT' },
+      }, CASUAL_RULESET);
+      if (result === null) throw new ConflictException('GAME_NOT_ACTIVE');
+      await tx.game.update({ where: { id: gameId }, data: {
+        status: 'FINISHED', gameVersion: state.gameVersion + 1, resultWinner: null,
+        resultReason: result.reason, finishedAt: new Date(), drawOfferBy: null, drawOfferPly: null,
+      } });
+    });
+    return this.getSnapshot(gameId);
   }
 
   private async playerId(tx: DbClient, gameId: string, color: Color): Promise<string | null> {

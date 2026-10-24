@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
+import { GamesModule } from './modules/games/games.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RoomsModule } from './modules/rooms/rooms.module';
     PrismaModule,
     HealthModule,
     SessionsModule,
+    GamesModule,
     RoomsModule,
   ],
   providers: [ApiExceptionFilter],

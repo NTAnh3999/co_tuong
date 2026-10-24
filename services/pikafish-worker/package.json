@@ -18,7 +18,8 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "golden:gen": "tsx scripts/generate-golden-fixtures.ts"
+    "golden:gen": "tsx scripts/generate-golden-fixtures.ts",
+    "oracle:gen": "tsx scripts/generate-oracle-fixtures.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.30",

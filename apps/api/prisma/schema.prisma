@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  GUEST
+  REGISTERED
+}
+
+enum Color {
+  RED
+  BLACK
+}
+
+enum RoomStatus {
+  WAITING
+  READY
+  STARTED
+  CLOSED
+}
+
+enum GameMode {
+  LOCAL
+  AI
+  ONLINE
+}
+
+enum GameStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+  ABORTED
+}
+
+model User {
+  id              String        @id @default(cuid())
+  nickname        String
+  type            UserType
+  createdAt       DateTime      @default(now())
+  guestSession    GuestSession?
+  hostedRooms     Room[]        @relation("RoomHost")
+  roomMemberships RoomMember[]
+  redGames        Game[]        @relation("RedPlayer")
+  blackGames      Game[]        @relation("BlackPlayer")
+  gameMoves       GameMove[]
+}
+
+model GuestSession {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Room {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  hostId      String
+  host        User         @relation("RoomHost", fields: [hostId], references: [id])
+  status      RoomStatus   @default(WAITING)
+  initialMs   Int
+  incrementMs Int
+  gameId      String?      @unique
+  game        Game?        @relation(fields: [gameId], references: [id])
+  expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+  members     RoomMember[]
+}
+
+model RoomMember {
+  id       String   @id @default(cuid())
+  roomId   String
+  room     Room     @relation(fields: [roomId], references: [id])
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  color    Color?
+  isHost   Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  @@unique([roomId, userId])
+}
+
+model Game {
+  id               String         @id @default(cuid())
+  mode             GameMode
+  redId            String?
+  red              User?          @relation("RedPlayer", fields: [redId], references: [id])
+  blackId          String?
+  black            User?          @relation("BlackPlayer", fields: [blackId], references: [id])
+  initialFen       String
+  ruleSetVersion   String
+  status           GameStatus     @default(WAITING)
+  gameVersion      Int            @default(0)
+  initialMs        Int?
+  incrementMs      Int?
+  redRemainingMs   Int?
+  blackRemainingMs Int?
+  activeColor      Color?
+  turnStartedAt    DateTime?
+  resultWinner     Color?
+  resultReason     String?
+  finishedAt       DateTime?
+  drawOfferBy      Color?
+  drawOfferPly     Int?
+  createdAt        DateTime       @default(now())
+  moves            GameMove[]
+  snapshots        GameSnapshot[]
+  room             Room?
+}
+
+model GameMove {
+  id           String   @id @default(cuid())
+  gameId       String
+  game         Game     @relation(fields: [gameId], references: [id])
+  ply          Int
+  uci          String
+  moveId       String   @unique
+  playerId     String?
+  player       User?    @relation(fields: [playerId], references: [id])
+  clockAfterMs Int?
+  acceptedAt   DateTime @default(now())
+
+  @@unique([gameId, ply])
+}
+
+model GameSnapshot {
+  id         String   @id @default(cuid())
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id])
+  ply        Int
+  fen        String
+  clocksJson Json?
+  version    Int
+  createdAt  DateTime @default(now())
+
+  @@unique([gameId, ply])
+}

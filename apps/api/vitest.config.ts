@@ -13,5 +13,6 @@ export default defineConfig({
   test: {
     globals: true,
     include: ['test/**/*.e2e-spec.ts', 'src/**/*.spec.ts', 'src/**/*.test.ts'],
+    globalSetup: ['./test/setup/global-setup.cjs'],
   },
 });

@@ -1,0 +1,11 @@
+{
+  "id": "fixture-puzzle",
+  "title": "Fixture puzzle",
+  "objective": "Find a legal line.",
+  "difficulty": 1,
+  "initialFen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+  "sideToMove": "red",
+  "solutionLines": [["a3a4", "a6a5"]],
+  "hints": [],
+  "source": "Test fixture"
+}

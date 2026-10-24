@@ -37,6 +37,22 @@ enum GameStatus {
   ABORTED
 }
 
+enum LessonLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LearningContentType {
+  LESSON
+  PUZZLE
+}
+
+enum LearningProgressStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
 model User {
   id              String        @id @default(cuid())
   nickname        String
@@ -48,6 +64,46 @@ model User {
   redGames        Game[]        @relation("RedPlayer")
   blackGames      Game[]        @relation("BlackPlayer")
   gameMoves       GameMove[]
+  learningProgress LearningProgress[]
+}
+
+model Lesson {
+  id             String      @id @default(cuid())
+  slug           String      @unique
+  title          String
+  level          LessonLevel
+  contentVersion Int         @default(1)
+  bodyJson       Json
+  createdAt      DateTime    @default(now())
+}
+
+model Puzzle {
+  id                  String   @id
+  title               String
+  objective           String
+  difficulty          Int
+  initialFen          String
+  sideToMove          Color
+  solutionJson        Json
+  allowedAlternatives Json
+  hints               Json
+  source              String
+  contentVersion      Int      @default(1)
+  createdAt           DateTime @default(now())
+}
+
+model LearningProgress {
+  id          String                  @id @default(cuid())
+  userId      String
+  user        User                    @relation(fields: [userId], references: [id])
+  contentType LearningContentType
+  contentId   String
+  status      LearningProgressStatus
+  attempts    Int                     @default(0)
+  completedAt DateTime?
+  updatedAt   DateTime                @updatedAt
+
+  @@unique([userId, contentType, contentId])
 }
 
 model GuestSession {

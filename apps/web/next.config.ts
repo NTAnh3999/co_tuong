@@ -1,6 +1,10 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  // Only set for the production Docker image build (apps/web/Dockerfile sets DOCKER_BUILD=1).
+  // Next's standalone output traces and symlinks node_modules, which fails with EPERM on
+  // Windows without Developer Mode/admin rights -- keep local `next build` unaffected.
+  ...(process.env.DOCKER_BUILD === '1' ? { output: 'standalone' as const } : {}),
   transpilePackages: [
     "@xq/xiangqi-core",
     "@xq/shared-contracts",

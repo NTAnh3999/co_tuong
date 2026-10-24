@@ -1,0 +1,11 @@
+{$DOMAIN} {
+	email {$ACME_EMAIL}
+
+	@api path /api/*
+	reverse_proxy @api api:3001
+
+	@socketio path /socket.io /socket.io/*
+	reverse_proxy @socketio api:3001
+
+	reverse_proxy web:3000
+}

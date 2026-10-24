@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: xq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: xq_prod
+    volumes:
+      - xq_pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U xq -d xq_prod']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pikafish-worker:
+    build:
+      context: ../..
+      dockerfile: services/pikafish-worker/Dockerfile
+    environment:
+      PORT: 4000
+      POOL_SIZE: 2
+      QUEUE_CAP: 20
+    cpus: 2.0
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:4000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://xq:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/xq_prod
+      PIKAFISH_WORKER_URL: http://pikafish-worker:4000
+      WEB_ORIGIN: https://${DOMAIN:?Set DOMAIN}
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - xq_caddy_data:/data
+      - xq_caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  xq_pgdata_prod:
+    driver: local
+  xq_caddy_data:
+    driver: local
+  xq_caddy_config:
+    driver: local

@@ -136,7 +136,9 @@ export class GamesService {
       gameId, status: state.status, initialFen: state.initialFen,
       moves: state.moves.map(encodeMove), gameVersion: state.gameVersion, clocks: state.clock,
       result: state.result,
-      redPlayerId: game.redId, blackPlayerId: game.blackId, serverNow: Date.now(),
+      redPlayerId: game.redId, blackPlayerId: game.blackId,
+      drawOfferBy: game.drawOfferBy === null ? null : game.drawOfferBy === 'RED' ? 'red' : 'black',
+      serverNow: Date.now(),
     };
   }
 

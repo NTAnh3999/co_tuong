@@ -82,6 +82,8 @@ export const gameSnapshotSchema = z.object({
   result: gameResultSchema.nullable(),
   redPlayerId: z.string().nullable(),
   blackPlayerId: z.string().nullable(),
+  // Optional for backwards compatibility with snapshots created before draw offers were exposed.
+  drawOfferBy: colorSchema.nullable().optional(),
   serverNow: z.number().int().nonnegative(),
 });
 export type GameSnapshot = z.infer<typeof gameSnapshotSchema>;

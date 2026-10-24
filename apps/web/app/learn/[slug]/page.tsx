@@ -71,15 +71,15 @@ function Lesson({ slug }: { slug: string }) {
         <p aria-live="polite" className="text-sm text-muted-foreground">Bước {stepIndex + 1} / {lesson.steps.length}</p>
         <p className="rounded-md border border-border p-4">{step.caption}</p>
         <div className="flex gap-2">
-          <button type="button" className="rounded-md border px-4 py-2" onClick={() => setCurrentStep((value) => Math.max(0, value - 1))} disabled={stepIndex === 0}>Trước</button>
-          <button type="button" className="rounded-md border px-4 py-2" onClick={() => setCurrentStep((value) => Math.min(lesson.steps.length - 1, value + 1))} disabled={stepIndex === lesson.steps.length - 1}>Tiếp</button>
+          <button type="button" className="min-h-11 rounded-md border px-4 py-2" onClick={() => setCurrentStep((value) => Math.max(0, value - 1))} disabled={stepIndex === 0}>Trước</button>
+          <button type="button" className="min-h-11 rounded-md border px-4 py-2" onClick={() => setCurrentStep((value) => Math.min(lesson.steps.length - 1, value + 1))} disabled={stepIndex === lesson.steps.length - 1}>Tiếp</button>
         </div>
         <ol aria-label="Các bước bài học" className="flex flex-wrap gap-2">
           {lesson.steps.map((lessonStep, index) => (
             <li key={`${index}-${lessonStep.fen}`}>
               <button
                 type="button"
-                className="rounded-md border px-3 py-2"
+                className="min-h-11 min-w-11 rounded-md border px-3 py-2"
                 aria-current={stepIndex === index ? 'step' : undefined}
                 onClick={() => setCurrentStep(index)}
               >

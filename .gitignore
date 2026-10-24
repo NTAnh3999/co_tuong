@@ -3,6 +3,8 @@ dist/
 build/
 .turbo/
 .next/
+# e2e/resilience.spec.ts's isolated web dev server uses a disposable NEXT_DIST_DIR per run
+.next-resilience-*/
 coverage/
 test-results/
 playwright-report/

@@ -117,7 +117,7 @@ export default function ProfilePage() {
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Ván đấu gần đây</h2>
-                <Link href="/history" className="text-sm text-primary underline-offset-4 hover:underline">
+                <Link href="/history" className="inline-flex min-h-11 items-center text-sm text-primary underline-offset-4 hover:underline">
                   Xem tất cả
                 </Link>
               </div>
@@ -131,7 +131,7 @@ export default function ProfilePage() {
                 <ul className="divide-y divide-border rounded-md border border-border">
                   {recentGames.map((game) => (
                     <li key={game.gameId} className="flex items-center justify-between px-4 py-3 text-sm">
-                      <Link href={`/history/${game.gameId}`} className="text-primary underline-offset-4 hover:underline">
+                      <Link href={`/history/${game.gameId}`} className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">
                         {game.opponent ? `Đấu với ${game.opponent.nickname}` : 'Ván đấu với AI'}
                       </Link>
                       <span className="text-muted-foreground">{game.status}</span>

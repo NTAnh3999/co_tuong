@@ -17,7 +17,7 @@ export default function Footer() {
         <ul className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           {footerItems.map(({ label, href }) => (
             <li key={href}>
-              <Link className="text-xs text-foreground underline-offset-4 hover:underline sm:text-sm" href={href}>
+              <Link className="inline-flex min-h-11 min-w-11 items-center justify-center text-xs text-foreground underline-offset-4 hover:underline sm:text-sm" href={href}>
                 {label}
               </Link>
             </li>

@@ -71,8 +71,8 @@ function ReplayBoard({ controller }: { controller: ReplayController }) {
           onChange={(event) => controller.goToPly(Number(event.currentTarget.value))}
         />
         <div className="flex gap-2">
-          <button type="button" className="rounded-md border px-4 py-2" onClick={controller.previous} disabled={state.currentPly === 0}>Trước</button>
-          <button type="button" className="rounded-md border px-4 py-2" onClick={controller.next} disabled={state.currentPly === state.steps.length - 1}>Tiếp</button>
+          <button type="button" className="min-h-11 rounded-md border px-4 py-2" onClick={controller.previous} disabled={state.currentPly === 0}>Trước</button>
+          <button type="button" className="min-h-11 rounded-md border px-4 py-2" onClick={controller.next} disabled={state.currentPly === state.steps.length - 1}>Tiếp</button>
         </div>
       </aside>
     </main>

@@ -170,7 +170,8 @@ function ReadyOnlineGame({ gameId, userId, roomCode }: { gameId: string; userId:
 
   return (
     <main className="flex min-h-screen flex-col items-center gap-6 bg-background px-4 py-6 text-foreground lg:flex-row lg:items-start lg:justify-center">
-      <section className="flex w-full max-w-xl flex-col items-center gap-3">
+      <h1 className="sr-only">Ván cờ trực tuyến</h1>
+      <section className="flex w-full max-w-xl flex-col items-center gap-3 overflow-x-auto">
         {state.connectionStatus === 'disconnected' && <p role="alert" className="w-full rounded-md bg-amber-100 px-4 py-3 text-center text-sm text-amber-950">Mất kết nối, đang thử kết nối lại...</p>}
         {showRejection && state.lastRejection && <p role="status" className="text-sm text-destructive">{rejectionText(state.lastRejection.reason)}</p>}
         <Board2D

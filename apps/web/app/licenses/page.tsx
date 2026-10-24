@@ -14,7 +14,7 @@ export default function LicensesPage() {
           <li>Pikafish chỉ được chạy phía máy chủ; không được gửi đến trình duyệt hoặc ứng dụng của người dùng.</li>
           <li>Bản Pikafish được sử dụng không được chỉnh sửa so với bản phát hành gốc.</li>
           <li>
-            Mã nguồn và hướng dẫn biên dịch của Pikafish: <a className="underline" href="https://github.com/official-pikafish/Pikafish">github.com/official-pikafish/Pikafish</a>.
+            Mã nguồn và hướng dẫn biên dịch của Pikafish: <a className="inline-flex min-h-11 items-center underline" href="https://github.com/official-pikafish/Pikafish">github.com/official-pikafish/Pikafish</a>.
           </li>
           <li>Danh sách tác giả Pikafish: tệp <code>AUTHORS</code> của dự án gốc.</li>
         </ul>

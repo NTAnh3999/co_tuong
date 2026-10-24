@@ -66,7 +66,7 @@ export default function PuzzleDetailPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-5 px-4 py-8">
       <header className="flex items-center justify-between gap-4">
-        <Link href="/puzzles" className="text-sm underline">‹ Câu đố</Link>
+        <Link href="/puzzles" className="inline-flex min-h-11 items-center text-sm underline">‹ Câu đố</Link>
         <span className="text-sm">Độ khó: {puzzle.difficulty}/5</span>
       </header>
       <h1 className="text-2xl font-bold">{puzzle.title}</h1>
@@ -75,7 +75,7 @@ export default function PuzzleDetailPage() {
         <p className="mt-1 whitespace-pre-wrap">{puzzle.objective}</p>
       </section>
 
-      <div className="mx-auto w-full max-w-[620px]">
+      <div className="mx-auto w-full max-w-[620px] overflow-x-auto">
         <Board2D
           position={state.position}
           orientation={puzzle.sideToMove}
@@ -89,10 +89,10 @@ export default function PuzzleDetailPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button className="rounded-md border border-border px-4 py-2 disabled:opacity-50" disabled={state.hintsRevealed >= puzzle.hints.length || state.status === 'solved'} onClick={controller.requestHint}>
+        <button className="min-h-11 rounded-md border border-border px-4 py-2 disabled:opacity-50" disabled={state.hintsRevealed >= puzzle.hints.length || state.status === 'solved'} onClick={controller.requestHint}>
           Gợi ý (còn {puzzle.hints.length - state.hintsRevealed} lượt)
         </button>
-        <button className="rounded-md border border-border px-4 py-2" onClick={controller.retry}>Thử lại</button>
+        <button className="min-h-11 rounded-md border border-border px-4 py-2" onClick={controller.retry}>Thử lại</button>
       </div>
       {state.hintsRevealed > 0 && <ol aria-label="Gợi ý đã mở" className="list-inside list-decimal space-y-1">{puzzle.hints.slice(0, state.hintsRevealed).map((hint, hintIndex) => <li key={hintIndex}>{hint}</li>)}</ol>}
       <p role="status" aria-live="polite">
@@ -100,7 +100,7 @@ export default function PuzzleDetailPage() {
       </p>
       {nextPuzzle && (
         <div className="flex justify-end">
-          <button className="rounded-md border border-border px-4 py-2 disabled:opacity-50" disabled={state.status !== 'solved'} onClick={() => router.push(`/puzzles/${nextPuzzle.id}`)}>
+          <button className="min-h-11 rounded-md border border-border px-4 py-2 disabled:opacity-50" disabled={state.status !== 'solved'} onClick={() => router.push(`/puzzles/${nextPuzzle.id}`)}>
             Puzzle tiếp theo →
           </button>
         </div>

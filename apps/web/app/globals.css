@@ -11,7 +11,10 @@
   --color-destructive-foreground: #fafafa;
   --color-accent: #f5f5f5;
   --color-accent-foreground: #262626;
-  --color-muted-foreground: #737373;
+  /* #737373 only reaches a 4.34:1 contrast ratio against --color-accent (#f5f5f5), under WCAG AA's
+     4.5:1 for normal-size text (confirmed by an axe color-contrast violation on the time-control
+     picker's selected option). #666666 clears 5.2:1 against the same background. */
+  --color-muted-foreground: #666666;
   --color-input: #e5e5e5;
   --color-ring: #a3a3a3;
   --radius-md: 0.5rem;

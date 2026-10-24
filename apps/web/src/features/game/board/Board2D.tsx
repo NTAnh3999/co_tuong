@@ -239,7 +239,7 @@ export function Board2D({
       onKeyDown={interactive ? handleKeyDown : undefined}
       onPointerMove={interactive ? handlePointerMove : undefined}
       onPointerUp={interactive ? handlePointerUp : undefined}
-      style={{ display: 'block', overflow: 'visible', userSelect: 'none', outlineOffset: 4 }}
+      style={{ display: 'block', minWidth: interactive ? 448 : undefined, overflow: 'visible', userSelect: 'none', outlineOffset: 4 }}
     >
       <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="#e8c991" />
       <rect x={MARGIN - 4} y={MARGIN + GRID * 4 + GRID / 2 - 10} width={GRID * 8 + 8} height="20" fill="#f0d9ad" />

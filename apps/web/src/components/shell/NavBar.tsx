@@ -14,14 +14,14 @@ export default function NavBar() {
         aria-label="Điều hướng chính"
         className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6"
       >
-        <Link className="shrink-0 text-base font-bold tracking-tight sm:text-lg" href="/">
+        <Link className="inline-flex min-h-11 shrink-0 items-center text-base font-bold tracking-tight sm:text-lg" href="/">
           Cờ Tướng
         </Link>
         <ul className="flex items-center gap-1 sm:gap-3">
           {navigationItems.map(({ label, href }) => (
             <li key={href}>
               <Link
-                className="inline-flex min-h-10 items-center rounded-md px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent sm:px-3 sm:text-sm"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent sm:px-3 sm:text-sm"
                 href={href}
               >
                 {label}

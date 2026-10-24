@@ -17,6 +17,25 @@ services:
       timeout: 5s
       retries: 5
 
+  pikafish-worker:
+    build:
+      context: ../..
+      dockerfile: services/pikafish-worker/Dockerfile
+    container_name: xq_pikafish_worker_dev
+    environment:
+      PORT: 4000
+      POOL_SIZE: 2
+      QUEUE_CAP: 20
+    ports:
+      - '4000:4000'
+    cpus: 2.0
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:4000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   xq_pgdata:
     driver: local

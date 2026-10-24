@@ -3,12 +3,13 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { HealthModule } from '../src/health/health.module';
+import { PrismaModule } from '../src/prisma/prisma.module';
 
 describe('GET /api/v1/health', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [HealthModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [PrismaModule, HealthModule] }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
     await app.init();
@@ -22,6 +23,7 @@ describe('GET /api/v1/health', () => {
     const response = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
     expect(response.body.status).toBe('ok');
     expect(response.body.coreStartingFen).toMatch(/^rnbakabnr/);
+    expect(response.body.db).toBe('ok');
     expect(Number.isNaN(Date.parse(response.body.timestamp))).toBe(false);
   });
 });

@@ -32,7 +32,7 @@ const PIECE_LABELS: Record<Piece['type'], string> = {
   SOLDIER: 'Soldier',
 };
 
-const PIECE_GLYPHS: Record<Color, Record<Piece['type'], string>> = {
+export const PIECE_GLYPHS: Record<Color, Record<Piece['type'], string>> = {
   red: {
     GENERAL: '帥', ADVISOR: '仕', ELEPHANT: '相', HORSE: '馬',
     CHARIOT: '車', CANNON: '炮', SOLDIER: '兵',

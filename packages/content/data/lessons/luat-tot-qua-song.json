@@ -1,0 +1,22 @@
+{
+  "slug": "luat-tot-qua-song",
+  "title": "Luật Tốt qua sông",
+  "level": "beginner",
+  "steps": [
+    {
+      "fen": "3k5/9/9/9/9/9/4P4/9/9/4K4 w - - 0 1",
+      "caption": "Tốt (P) chưa qua sông chỉ được đi thẳng về phía trước một ô. Tốt đỏ ở e3 không được đi ngang.",
+      "highlightSquares": ["e4"]
+    },
+    {
+      "fen": "3k5/9/9/9/4P4/9/9/9/9/4K4 w - - 0 1",
+      "caption": "Khi Tốt đã qua sông (từ hàng 5 trở lên với Đỏ), nó được đi thêm nước ngang sang trái hoặc sang phải. Tốt đỏ ở e5 có thể đi lên e6, sang d5 hoặc f5. Tốt không bao giờ lùi lại.",
+      "highlightSquares": ["d5", "f5", "e6"]
+    },
+    {
+      "fen": "3k5/9/9/9/9/4p4/9/9/9/4K4 b - - 0 1",
+      "caption": "Tốt đen tiến xuống dưới. Tốt đen ở e4 đã qua sông (hàng 4 trở xuống với Đen), nên có thể đi xuống e3 hoặc ngang sang d4, f4.",
+      "highlightSquares": ["d4", "e3", "f4"]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "slug": "di-chuyen-xe-phao",
+  "title": "Cách các quân di chuyển: Xe và Pháo",
+  "level": "beginner",
+  "steps": [
+    {
+      "fen": "3k5/9/9/9/4R4/9/9/9/9/4K4 w - - 0 1",
+      "caption": "Xe (R) đi thẳng theo hàng ngang hoặc hàng dọc với số ô bất kỳ, miễn là đường đi không bị quân khác chặn. Xe ở e5 có thể đi đến e9, a5, i5 và các ô khác trên đường thẳng của nó.",
+      "highlightSquares": ["e1", "e9", "a5", "i5"]
+    },
+    {
+      "fen": "3k5/9/4r4/9/9/4p4/9/4C4/9/4K4 w - - 0 1",
+      "caption": "Pháo (C) đi như Xe khi không ăn quân. Khi ăn quân, Pháo phải nhảy qua đúng một quân làm 'ngòi' (quân chắn). Ở đây Pháo đỏ e2 ăn được Xe đen e7 vì có Tốt đen e4 làm ngòi.",
+      "highlightSquares": ["e4", "e7"]
+    },
+    {
+      "fen": "3k5/9/4p4/9/9/9/9/4C4/9/4K4 w - - 0 1",
+      "caption": "Không có ngòi thì Pháo không ăn được quân ở e7. Khi không ăn quân, Pháo đi thẳng như Xe, nên các ô e3 đến e6 đều là nước đi hợp lệ.",
+      "highlightSquares": ["e3", "e4", "e5", "e6"]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "slug": "nhan-biet-the-chieu-het",
+  "title": "Nhận biết thế chiếu hết cơ bản",
+  "level": "advanced",
+  "steps": [
+    {
+      "fen": "4k4/4r4/9/2R6/4R4/9/9/9/9/4K4 w - - 0 1",
+      "caption": "Đỏ đi trước. Xe đỏ c6 lên c9 tạo chiếu dọc theo hàng 9 tới Tướng đen ở e9 (qua ô d9 trống). Xe e5 đã phong tỏa cột e, nên Tướng đen không có chỗ đi an toàn.",
+      "highlightSquares": ["c6", "c9", "e5"]
+    },
+    {
+      "fen": "2R1k4/4r4/9/9/4R4/9/9/9/9/4K4 b - - 1 2",
+      "caption": "Sau c6-c9, Tướng đen đang bị chiếu và không có nước đi hợp lệ nào: không đi được sang d9 hay f9, và Xe đen ở e8 không chặn được đường chiếu. Đây là thế chiếu hết. Theo luật, bên không có nước đi sẽ thua.",
+      "highlightSquares": ["c9", "e9"]
+    }
+  ]
+}

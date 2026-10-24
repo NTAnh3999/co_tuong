@@ -1,0 +1,17 @@
+{
+  "slug": "phong-thu-tuong",
+  "title": "Bảo vệ Tướng: cấu trúc phòng thủ cơ bản",
+  "level": "intermediate",
+  "steps": [
+    {
+      "fen": "3k5/9/9/9/9/9/9/9/9/2BAKAB2 w - - 0 1",
+      "caption": "Cấu trúc phòng thủ cổ điển: Sĩ ở d0 và f0 bao quanh Tướng, Tượng ở c0 và g0 chắn hai bên. Khi các quân này còn nguyên, Tướng gần như không có đường bị tấn công trực diện.",
+      "highlightSquares": ["d0", "f0"]
+    },
+    {
+      "fen": "3kr4/9/9/9/9/9/9/9/9/2B1K4 w - - 0 1",
+      "caption": "Khi thiếu Sĩ, Tướng đỏ ở e0 bị Xe đen ở e9 chiếu thẳng theo cột e. Bên đỏ phải chặn đường chiếu hoặc đưa Tướng sang ô an toàn trong cung. Đây là lý do cần giữ Sĩ ở vị trí phòng thủ.",
+      "highlightSquares": ["e9", "e0"]
+    }
+  ]
+}

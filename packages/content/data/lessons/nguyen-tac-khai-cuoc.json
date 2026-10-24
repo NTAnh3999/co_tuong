@@ -1,0 +1,17 @@
+{
+  "slug": "nguyen-tac-khai-cuoc",
+  "title": "Nguyên tắc khai cuộc cơ bản",
+  "level": "intermediate",
+  "steps": [
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "caption": "Thế cờ khởi đầu: mỗi bên có 16 quân. Hai Pháo đỏ nằm ở b2 và h2. Mục tiêu đầu tiên là đưa quân ra khỏi hàng ngang một cách có kế hoạch, không đưa một quân ra quá sớm.",
+      "highlightSquares": ["b2", "h2"]
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C4/9/RNBAKABNR b - - 1 1",
+      "caption": "Pháo đỏ từ h2 ra e2, chiếm đường giữa (cột e). Kiểm soát cột giữa giúp Pháo và Xe có đường tấn công, và Tướng nên được giữ yên trong cung, không đi ra sớm.",
+      "highlightSquares": ["e2"]
+    }
+  ]
+}

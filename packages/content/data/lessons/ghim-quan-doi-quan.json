@@ -1,0 +1,17 @@
+{
+  "slug": "ghim-quan-doi-quan",
+  "title": "Chiến thuật ghim quân và đổi quân hợp lý",
+  "level": "intermediate",
+  "steps": [
+    {
+      "fen": "4k4/9/9/4n4/9/9/9/9/4R4/3K5 b - - 0 1",
+      "caption": "Mã đen ở e6 đang bị ghim: nếu nó rời cột e, Xe đỏ ở e1 sẽ chiếu thẳng vào Tướng đen ở e9. Một quân bị ghim không được đi tự do, vì đi như vậy là đưa Tướng vào thế bị chiếu.",
+      "highlightSquares": ["e6", "e9"]
+    },
+    {
+      "fen": "3k5/9/4r4/2n6/9/4R4/9/9/9/4K4 w - - 0 1",
+      "caption": "Xe đỏ e4 ăn Xe đen e7, và Mã đen c6 ăn lại được vì c6 bảo vệ e7 qua chân ngựa d6. Đây là đổi quân ngang giá: Xe đổi Xe. Đổi quân ngang giá hợp lý khi bạn không mất thế và đối thủ không có lợi hơn.",
+      "highlightSquares": ["e7", "c6"]
+    }
+  ]
+}

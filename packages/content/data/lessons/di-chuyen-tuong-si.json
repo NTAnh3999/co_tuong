@@ -1,0 +1,22 @@
+{
+  "slug": "di-chuyen-tuong-si",
+  "title": "Cách các quân di chuyển: Tướng và Sĩ",
+  "level": "beginner",
+  "steps": [
+    {
+      "fen": "3k5/4a4/9/9/9/9/9/9/9/3AKA3 w - - 0 1",
+      "caption": "Tướng (K) chỉ được đi một ô theo hàng ngang hoặc hàng dọc, và luôn phải nằm trong cung 3x3 (cung Tướng). Ở đây Tướng đỏ bị Sĩ chặn ở d0 và f0, nên chỉ đi được lên e1.",
+      "highlightSquares": ["e1"]
+    },
+    {
+      "fen": "3k5/9/9/9/9/9/9/9/9/3AK4 w - - 0 1",
+      "caption": "Sĩ (A) chỉ đi chéo đúng một ô và cũng phải ở trong cung. Từ d0, Sĩ chỉ có thể đi đến e1; nước c1 nằm ngoài cung nên không hợp lệ.",
+      "highlightSquares": ["e1"]
+    },
+    {
+      "fen": "3k5/9/9/9/9/9/9/5A3/9/4K4 w - - 0 1",
+      "caption": "Sĩ ở góc cung f2 chỉ có một nước đi hợp lệ là e1. Hãy nhớ: Sĩ không bao giờ rời khỏi cung, và cũng không đi thẳng.",
+      "highlightSquares": ["e1"]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "slug": "ba-giai-doan-van-co",
+  "title": "Tổng kết: ba giai đoạn của một ván cờ",
+  "level": "advanced",
+  "steps": [
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "caption": "Giai đoạn 1 - Khai cuộc: các bên triển khai quân từ hàng ngang, đưa Xe, Mã, Pháo ra vị trí tốt và bảo vệ Tướng. Mục tiêu là phát triển quân nhanh và an toàn.",
+      "highlightSquares": []
+    },
+    {
+      "fen": "3k2r2/9/2C3c2/7n1/4R4/9/P1P6/9/9/3AKA3 w - - 0 1",
+      "caption": "Giai đoạn 2 - Trung cuộc: nhiều quân đã đổi và các bên tìm cơ hội tấn công. Hãy chú ý Xe, Pháo và Mã đang hoạt động, và kiểm tra xem quân nào đang bị ghim hoặc bị tấn công.",
+      "highlightSquares": ["e5", "c7", "h6"]
+    },
+    {
+      "fen": "3k5/9/9/9/4R4/9/9/9/9/4K4 w - - 0 1",
+      "caption": "Giai đoạn 3 - Tàn cuộc: ít quân hơn, Tướng trở thành quân tích cực hơn. Xe đỏ hoạt động tự do trên đường mở, và việc giữ thế cân bằng về quân số quyết định ai thắng.",
+      "highlightSquares": ["e5"]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "slug": "di-chuyen-ma-tuong",
+  "title": "Cách các quân di chuyển: Mã và Tượng",
+  "level": "beginner",
+  "steps": [
+    {
+      "fen": "3k5/9/9/9/4p4/4N4/9/9/9/4K4 w - - 0 1",
+      "caption": "Mã (N) đi hình chữ L: hai ô theo một hướng rồi rẽ một ô. Trước khi đi, Mã phải có 'chân ngựa' trống ở ô sát nó theo hướng đi. Tốt đen ở e5 chặn chân ngựa, nên Mã không thể nhảy lên d6 hay f6.",
+      "highlightSquares": ["e5"]
+    },
+    {
+      "fen": "3k5/9/9/9/9/9/9/9/9/2B1K4 w - - 0 1",
+      "caption": "Tượng (B) đi chéo đúng hai ô và có 'mắt tượng' ở giữa phải trống. Tượng đỏ ở c0 có thể đi đến a2 (mắt ở b1) hoặc e2 (mắt ở d1). Tượng không được vượt sông.",
+      "highlightSquares": ["a2", "e2"]
+    },
+    {
+      "fen": "3k5/9/9/9/9/9/9/9/3P5/2B1K4 w - - 0 1",
+      "caption": "Quân Tốt đỏ đặt ở d1 chặn mắt tượng, nên Tượng c0 không đi được đến e2. Chỉ còn nước a2 hợp lệ. Hãy luôn kiểm tra mắt tượng trước khi đi.",
+      "highlightSquares": ["d1", "e2"]
+    }
+  ]
+}

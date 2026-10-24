@@ -1,0 +1,17 @@
+{
+  "slug": "chieu-lien-tuc-va-duoi-quan",
+  "title": "Chiếu liên tục và đuổi quân: hai luật khác nhau",
+  "level": "advanced",
+  "steps": [
+    {
+      "fen": "4k4/9/9/9/9/9/9/9/9/3KR4 b - - 0 1",
+      "caption": "Xe đỏ ở e0 đang chiếu Tướng đen ở e9 theo cột e (các ô e1 đến e8 đều trống), nên Đen phải thoát chiếu ngay. Đây là chiếu liên tục nếu bạn cứ chiếu đi chiếu lại. Luật ở đây: nếu thế cờ lặp lại 3 lần và chỉ một bên luôn chiếu ở mọi nước đi của mình, thì chính bên chiếu sẽ thua (kết quả PERPETUAL_CHECK). Đừng chiếu mãi nếu không chiếu hết được, bạn có thể bị xử thua.",
+      "highlightSquares": ["e0", "e9"]
+    },
+    {
+      "fen": "4k4/9/9/1r7/9/9/9/9/9/1R1K5 b - - 0 1",
+      "caption": "Xe đỏ ở b0 đang đe dọa ăn Xe đen ở b5 vì cột b trống từ b1 đến b4. Đây là đuổi quân: nước đi này không chiếu Tướng. Luật giản lược của ứng dụng này không có điều khoản riêng cho đuổi quân liên tục. Nếu việc đuổi quân làm thế cờ lặp lại 3 lần, ván cờ hòa do lặp thế (REPETITION), giống mọi trường hợp lặp thế khác. Đây là chỗ luật giản lược khác với luật AXF chính thức.",
+      "highlightSquares": ["b0", "b5"]
+    }
+  ]
+}

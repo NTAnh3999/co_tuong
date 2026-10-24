@@ -1,14 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
-import { packageName } from '@xq/xiangqi-core';
+import { createInitialPosition, toFen } from '@xq/xiangqi-core';
 
 @Controller('health')
 export class HealthController {
   @Get()
-  getHealth(): { status: 'ok'; timestamp: string; core: string } {
+  getHealth(): { status: 'ok'; timestamp: string; coreStartingFen: string } {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      core: packageName,
+      coreStartingFen: toFen(createInitialPosition()),
     };
   }
 }

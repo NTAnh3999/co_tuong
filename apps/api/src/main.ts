@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { packageName } from '@xq/xiangqi-core';
+import { createInitialPosition, toFen } from '@xq/xiangqi-core';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -8,7 +8,7 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();
   await app.listen(process.env.PORT ?? 3001);
-  console.log(`API started; rules package: ${packageName}`);
+  console.log(`API started; rules engine starting FEN: ${toFen(createInitialPosition())}`);
 }
 
 void bootstrap();

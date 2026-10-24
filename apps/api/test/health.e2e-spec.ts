@@ -18,9 +18,10 @@ describe('GET /api/v1/health', () => {
     await app.close();
   });
 
-  it('returns an OK status, ISO timestamp, and core package name', async () => {
+  it('returns an OK status, ISO timestamp, and the rules engine starting FEN', async () => {
     const response = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
-    expect(response.body).toMatchObject({ status: 'ok', core: '@xq/xiangqi-core' });
+    expect(response.body.status).toBe('ok');
+    expect(response.body.coreStartingFen).toMatch(/^rnbakabnr/);
     expect(Number.isNaN(Date.parse(response.body.timestamp))).toBe(false);
   });
 });

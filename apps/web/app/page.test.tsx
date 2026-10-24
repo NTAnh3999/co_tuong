@@ -8,6 +8,6 @@ describe("home page", () => {
     render(<HomePage />)
 
     expect(screen.getByRole("heading", { name: "Cờ Tướng" })).toBeInTheDocument()
-    expect(screen.getByText("Core package: @xq/xiangqi-core")).toBeInTheDocument()
+    expect(screen.getByText(/^Starting FEN: rnbakabnr/)).toBeInTheDocument()
   })
 })

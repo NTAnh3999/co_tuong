@@ -80,11 +80,12 @@ describe('LOCAL-01: LocalGameController', () => {
   });
 
   it('ends on checkmate and rejects all later move input', () => {
-    const controller = createLocalGameController('4k4/9/9/9/4P4/9/5r3/9/9/R2PKP3 w - - 0 1');
+    const controller = createLocalGameController('4k4/9/9/9/9/9/9/4Pr3/9/P2PKP3 w - - 0 1');
     expect(controller.submitMove({ from: sq('a0'), to: sq('a1') })).toBe(true);
     expect(controller.getState().position.turn).toBe('black');
     expect(getLegalMoves(controller.getState().position, sq('f2'))).toContainEqual({ from: sq('f2'), to: sq('e2') });
     expect(controller.submitMove({ from: sq('f2'), to: sq('e2') })).toBe(true);
+    expect(getAllLegalMoves(controller.getState().position, 'red')).toEqual([]);
     expect(controller.getState().result).toEqual({ winner: 'black', reason: 'CHECKMATE' });
     const terminalState = controller.getState();
     expect(controller.submitMove({ from: sq('e9'), to: sq('d9') })).toBe(false);

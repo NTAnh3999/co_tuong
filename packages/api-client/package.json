@@ -13,6 +13,10 @@
       "require": "./dist/index.cjs"
     }
   },
+  "dependencies": {
+    "@xq/shared-contracts": "workspace:*",
+    "zod": "^3.24.0"
+  },
   "scripts": {
     "build": "tsup",
     "lint": "tsc --noEmit",

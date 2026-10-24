@@ -4,6 +4,9 @@ build/
 .turbo/
 .next/
 coverage/
+test-results/
+playwright-report/
+blob-report/
 *.log
 *.tsbuildinfo
 

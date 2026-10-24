@@ -6,6 +6,7 @@ import type { Color, Move } from '@xq/xiangqi-core';
 import type { ClockState, GameSnapshot, TimeControl } from '@xq/shared-contracts';
 import { createGameAggregate, submitMove } from './domain/game-aggregate.js';
 import type { GameAggregateState, SubmitMoveCommand, SubmitMoveOutcome } from './domain/game-aggregate.js';
+import { isClockExpired, isFirstMoveTimedOut } from './domain/clock.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
@@ -39,6 +40,39 @@ export class GamesService {
       where: { id: gameId },
       data: { status: 'ACTIVE', ...(game.initialMs === null ? {} : { activeColor: 'RED', turnStartedAt: new Date(now) }) },
     });
+    this.eventEmitter?.emit('game.updated', { gameId, kind: 'activated' });
+  }
+
+  async checkTimeout(gameId: string, now: number): Promise<boolean> {
+    const changed = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
+      const state = await this.reconstruct(tx, gameId);
+      if (state.status !== 'ACTIVE') return false;
+
+      if (state.clock !== null && state.moves.length < 2 && isFirstMoveTimedOut(state.clock.turnStartedAt, now)) {
+        await tx.game.update({ where: { id: gameId }, data: {
+          status: 'ABORTED', gameVersion: state.gameVersion + 1,
+          resultWinner: null, resultReason: 'ABORTED', finishedAt: new Date(now),
+        } });
+        return true;
+      }
+
+      const loser = state.clock === null ? null : isClockExpired(state.clock, now);
+      if (loser === null) return false;
+      const result = evaluateGame({
+        initialFen: state.initialFen, moves: state.moves, ruleSetVersion: CASUAL_RULESET.version,
+        terminalEvent: { type: 'TIMEOUT', loser },
+      }, CASUAL_RULESET);
+      if (result === null) return false;
+      await tx.game.update({ where: { id: gameId }, data: {
+        status: 'FINISHED', gameVersion: state.gameVersion + 1,
+        resultWinner: result.winner === null ? null : result.winner === 'red' ? 'RED' : 'BLACK',
+        resultReason: result.reason, finishedAt: new Date(now), drawOfferBy: null, drawOfferPly: null,
+      } });
+      return true;
+    });
+    if (changed) this.eventEmitter?.emit('game.updated', { gameId, kind: 'timeout' });
+    return changed;
   }
 
   async submitMove(gameId: string, command: SubmitMoveCommand): Promise<SubmitMoveOutcome> {

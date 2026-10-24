@@ -128,32 +128,33 @@ xiangqi-platform/ (= D:\Workspace\Co_Tuong)
 
 **Gate:** socket integration + two-context E2E green.
 
-## M5 — Pikafish (parallel with M4)
+## M5 — Pikafish (revised after M4; see .agents/LEDGER.md for rationale)
 
 | ID | Executor | Task | AC |
 |---|---|---|---|
-| T5.1 | Codex | Worker service: engine pool, bounded queue, timeout→kill/respawn, `/health`+`/metrics`, internal bestmove endpoint | AI-02 |
-| T5.2 | Codex | ADR-024 level profiles, MultiPV sampling | AI-01 |
-| T5.3 | Codex | API `AiModule`: untimed AI games, fallback to capture-preferring random legal move on timeout/error/illegal engine move | AI-01 |
-| T5.4 | Haiku | `/play/ai` page (reuses `/game/[id]` in AI mode) | — |
-| T5.5 | Haiku | Live adapter test vs. real Pikafish (skips without `PIKAFISH_PATH`) | CORE-06,AI-01 |
-| T5.6 | Codex | Pikafish Dockerfile (pinned tag, checksummed NNUE, `COPYING`/`SOURCE.md`), CPU/memory-limited compose service | AI-02 |
+| T5.1 | Codex | Worker HTTP service (merges old T5.1+T5.2): engine pool, bounded queue, timeout→kill/respawn, `/health`+`/metrics`, internal bestmove endpoint implementing ADR-024's three difficulty profiles (time/MultiPV/weighted-random) — requires extending `services/pikafish-worker`'s UCI `commands.ts` to parse MultiPV `info` lines, which doesn't exist yet | AI-01,AI-02 |
+| T5.3 | Codex | API `AiModule`: untimed AI games (`mode: 'AI'`, one `redId`/`blackId` left `null` for the engine's seat), calls T5.1's worker then re-submits the engine's move through `GamesService.submitMove`'s existing validated pipeline (never trusts the engine directly), fallback to capture-preferring random legal move on timeout/error/illegal engine move | AI-01 |
+| T5.4 | Codex | `/play/ai` page (reuses `/game/[id]`'s `OnlineGameController`/components in AI mode — AI's move arrives the same way a human opponent's would, via the existing socket/REST flow) | — |
+| T5.5 | Codex | Live adapter test vs. real Pikafish (skips without `PIKAFISH_PATH`) exercising the new MultiPV parsing | CORE-06,AI-01 |
+| T5.6 | Codex | Pikafish Dockerfile (pinned tag, checksummed NNUE, `COPYING`/`SOURCE.md`), CPU/memory-limited compose service, matching T5.1's actual entrypoint/port | AI-02 |
 
 **Gate:** 1000 simulated AI moves, 0 illegal applied, fallback exercised; queue limit holds under 10 concurrent games; live adapter test passes.
 
-## M6 — Academy, puzzles, replay
+## M6 — Academy, puzzles, replay (revised after M4; see .agents/LEDGER.md for rationale)
+
+Naming note: per the architecture doc, `lessons`/`puzzles`/`learning_progress` are real Prisma tables (not static files) — T6.1 includes the migration. "PuzzleController" (T6.5) and "ReplayController" (T6.8) are WEB-SIDE state controllers, the same pattern as `LocalGameController`/`OnlineGameController` (M2/M4) — the actual NestJS REST endpoints are T6.7's job.
 
 | ID | Executor | Task | AC |
 |---|---|---|---|
-| T6.1 | Codex | `packages/content`: Zod schemas, loader, `content:validate` (replays every line through core) | LEARN-01 |
-| T6.2 | Codex | Mate-in-N solver (N≤3) enforcing unique key move | LEARN-01 |
+| T6.1 | Codex | `packages/content`: Zod schemas (Lesson/Puzzle per `docs/ux/lowfi.md`'s puzzle data model), loader, `content:validate` (replays every line through core); Prisma migration adding `lessons`/`puzzles`/`learning_progress` tables | LEARN-01 |
+| T6.2 | Codex | Mate-in-N solver (N≤3) enforcing a unique key move, in `packages/content` (an authoring-time validation tool, not a runtime core rule) | LEARN-01 |
 | T6.3 | Haiku | ~10 Vietnamese lessons, all FENs validator-checked | — |
 | T6.4 | Haiku (guarded by Codex-built T6.2 validator, not by author correctness) | 25 puzzles from classic mating patterns, `editorialReview: pending` | LEARN-01 |
-| T6.5 | Codex | `PuzzleController` + pages (correct/wrong/hint/reset), tests | LEARN-01 |
-| T6.6 | Haiku | `/learn` + `/learn/[slug]` lesson renderer | — |
-| T6.7 | Haiku | Content API endpoints | — |
-| T6.8 | Codex | `ReplayController` + `/history`, `/history/[id]`; every-ply FEN matches DB snapshots | REPLAY-01,DATA-01 |
-| T6.9 | Haiku | `/profile` page | — |
+| T6.7 | Codex | NestJS content endpoints: `GET /lessons`, `GET /lessons/:slug`, `GET /puzzles`, `GET /puzzles/:id`, `POST /puzzles/:id/attempts` (writes `learning_progress`); also expose the already-built `GET /me/games` through `shared-contracts`/`api-client` (needed by T6.8, never wired up in M3/M4) | — |
+| T6.5 | Codex | Web `PuzzleController` (zustand/vanilla, mirrors `LocalGameController`) + `/puzzles`, `/puzzles/[id]` pages (correct/wrong/hint/reset) per `docs/ux/lowfi.md`'s wireframe, tests | LEARN-01 |
+| T6.6 | Codex | `/learn` + `/learn/[slug]` lesson renderer | — |
+| T6.8 | Codex | Web `ReplayController` + `/history`, `/history/[id]`; every-ply FEN matches DB snapshots | REPLAY-01,DATA-01 |
+| T6.9 | Haiku | `/profile` page (nickname edit via existing `PATCH /me`, recent-games shortcut into `/history`) | — |
 
 **Gate:** `content:validate` passes for all lessons/puzzles; puzzle+replay E2E green.
 

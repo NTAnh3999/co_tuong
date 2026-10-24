@@ -58,3 +58,35 @@ export async function bestMove(engine: EngineProcess, movetimeMs: number): Promi
   if (!move) throw new Error('Engine response did not include a bestmove');
   return move;
 }
+
+export interface MultiPvLine {
+  readonly multipv: number;
+  readonly move: string;
+  readonly scoreCp: number;
+}
+
+export async function searchMultiPv(
+  engine: EngineProcess,
+  movetimeMs: number,
+  multiPv: number,
+): Promise<MultiPvLine[]> {
+  if (!Number.isInteger(movetimeMs) || movetimeMs < 0) throw new Error('Move time must be a non-negative integer');
+  if (!Number.isInteger(multiPv) || multiPv < 1) throw new Error('MultiPV must be a positive integer');
+  const response = engine.waitFor((line) => /^\s*bestmove\s+/i.test(line), movetimeMs + 10_000);
+  engine.send(`setoption name MultiPV value ${multiPv}`);
+  engine.send(`go movetime ${movetimeMs}`);
+  const lines = await response;
+  const latest = new Map<number, MultiPvLine>();
+  for (const line of lines) {
+    const pv = /\bmultipv\s+(\d+)\b.*?\bscore\s+(cp|mate)\s+(-?\d+)\b.*?\bpv\s+(\S+)/i.exec(line);
+    if (!pv) continue;
+    const multipvIndex = Number(pv[1]);
+    // Map mate distance to a large signed score so normal threshold comparisons remain meaningful.
+    const value = Number(pv[3]);
+    const scoreCp = pv[2]!.toLowerCase() === 'mate'
+      ? Math.sign(value) * (100_000 - Math.abs(value))
+      : value;
+    latest.set(multipvIndex, { multipv: multipvIndex, move: pv[4]!, scoreCp });
+  }
+  return [...latest.values()].sort((a, b) => a.multipv - b.multipv);
+}

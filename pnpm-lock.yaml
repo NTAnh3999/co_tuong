@@ -360,10 +360,23 @@ importers:
         version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(jsdom@26.1.0(supports-color@7.2.0))(lightningcss@1.32.0)(supports-color@7.2.0)(tsx@4.23.15)
 
   packages/content:
+    dependencies:
+      '@xq/xiangqi-core':
+        specifier: workspace:*
+        version: link:../xiangqi-core
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^22.15.30
+        version: 22.20.5
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(@swc/core@1.16.20)(jiti@2.7.0)(postcss@8.5.31)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.19.3
+        version: 4.23.15
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -406,6 +419,10 @@ importers:
         version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(jsdom@26.1.0(supports-color@7.2.0))(lightningcss@1.32.0)(supports-color@7.2.0)(tsx@4.23.15)
 
   services/pikafish-worker:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.15.30

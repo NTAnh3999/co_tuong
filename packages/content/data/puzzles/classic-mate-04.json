@@ -1,0 +1,20 @@
+{
+  "id": "classic-mate-04",
+  "title": "Thế chiếu hết cổ điển 04",
+  "objective": "Chiếu hết trong 1 nước",
+  "difficulty": 2,
+  "initialFen": "4k4/9/9/9/9/4r4/6r2/9/4R4/4K4 b - - 0 1",
+  "sideToMove": "black",
+  "solutionLines": [
+    [
+      "g3g0"
+    ]
+  ],
+  "allowedAlternatives": [],
+  "hints": [
+    "Hãy quan sát các đường chiếu và ô thoát của Tướng.",
+    "Tìm quân có thể khống chế nhiều ô quanh Tướng.",
+    "Tính trước các nước đáp trả bắt buộc."
+  ],
+  "source": "Tạo và kiểm chứng bằng bộ giải chiếu hết"
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fromFen, toFen } from './fen.js';
 import {
-  decodeMove, evaluateGame, getAllLegalMoves, isInCheck,
+  CASUAL_RULESET, decodeMove, evaluateGame, getAllLegalMoves, isInCheck,
   positionKey, replay, squareToIndex, toSquare,
 } from './index.js';
 import type { Color, GameRecord, PieceType, Position } from './index.js';
@@ -126,5 +126,97 @@ describe('CORE-05: repetition and perpetual-check adjudication', () => {
     const game = record(quiet, moves);
     expect(evaluateGame(game, { version: 'test', noCaptureLimitPlies: 120 }))
       .toEqual({ winner: null, reason: 'REPETITION' });
+  });
+
+  it('CORE-05: loses for perpetual check when Black delivers it (mirror of the Red case)', () => {
+    const checking = position('black', ['f9', 'black', 'GENERAL'], ['f4', 'black', 'SOLDIER'], ['f1', 'black', 'CHARIOT'], ['e0', 'red', 'GENERAL']);
+    const moves = ['f1e1', 'e0f0', 'e1f1', 'f0e0', 'f1e1', 'e0f0', 'e1f1', 'f0e0'];
+    const game = record(checking, moves);
+    const steps = replay(game);
+    expect(steps[1]?.isCheck).toBe(true);
+    expect(steps[3]?.isCheck).toBe(true);
+    expect(steps[5]?.isCheck).toBe(true);
+    expect(steps[7]?.isCheck).toBe(true);
+    expect(steps[2]?.isCheck).toBe(false);
+    expect(steps[4]?.isCheck).toBe(false);
+    expect(evaluateGame(game, { version: 'test', noCaptureLimitPlies: 120 }))
+      .toEqual({ winner: 'red', reason: 'PERPETUAL_CHECK' });
+  });
+
+  it('CORE-05: a capture inside a checking cycle breaks the repetition window', () => {
+    const checking = position('red', ['d0', 'red', 'GENERAL'], ['d5', 'red', 'SOLDIER'], ['d8', 'red', 'CHARIOT'], ['e9', 'black', 'GENERAL'], ['a8', 'black', 'SOLDIER']);
+    const moves = ['d8e8', 'e9d9', 'e8d8', 'd9e9', 'd8a8'];
+    const game = record(checking, moves);
+    const steps = replay(game);
+    expect(steps[1]?.isCheck).toBe(true);
+    expect(steps[4]?.position.board).toEqual(steps[0]?.position.board);
+    expect(steps[5]?.captured).toEqual({ color: 'black', type: 'SOLDIER' });
+    expect(evaluateGame(game, { version: 'test', noCaptureLimitPlies: 120 })).toBeNull();
+  });
+
+  it('CORE-05: two occurrences of a checking cycle are not yet a perpetual check', () => {
+    const checking = position('red', ['d0', 'red', 'GENERAL'], ['d5', 'red', 'SOLDIER'], ['d8', 'red', 'CHARIOT'], ['e9', 'black', 'GENERAL']);
+    const game = record(checking, ['d8e8', 'e9d9', 'e8d8', 'd9e9']);
+    expect(evaluateGame(game, { version: 'test', noCaptureLimitPlies: 120 })).toBeNull();
+  });
+
+  it('CORE-05: a position that occurs only twice does not draw by repetition', () => {
+    const quiet = position('red', ['d0', 'red', 'GENERAL'], ['e9', 'black', 'GENERAL'], ['a0', 'red', 'CHARIOT'], ['c9', 'black', 'HORSE']);
+    const game = record(quiet, ['a0a1', 'c9b7', 'a1a0', 'b7c9']);
+    expect(evaluateGame(game, { version: 'test', noCaptureLimitPlies: 120 })).toBeNull();
+  });
+
+  it('CORE-05: repetition key distinguishes side to move and ignores move counters', () => {
+    const redToMove = position('red', ['d0', 'red', 'GENERAL'], ['e9', 'black', 'GENERAL'], ['a0', 'red', 'CHARIOT']);
+    const blackToMove = { ...redToMove, turn: 'black' as const };
+    const laterCounters = { ...redToMove, halfmoveClock: 99, fullmoveNumber: 50 };
+    expect(positionKey(redToMove)).not.toBe(positionKey(blackToMove));
+    expect(positionKey(redToMove)).toBe(positionKey(laterCounters));
+    expect(positionKey(redToMove)).toBe(toFen(redToMove).split(' ').slice(0, 2).join(' '));
+  });
+
+  it.todo('CORE-05: mutual perpetual check (both sides check every own move) resolves as REPETITION; no fixture found yet');
+});
+
+describe('CORE-04: no-capture limit and insufficient material', () => {
+  const rules = { version: 'test', noCaptureLimitPlies: 120 };
+
+  it('CORE-04: does not end at 119 plies without a capture', () => {
+    const near = { ...ongoing, halfmoveClock: 119 };
+    expect(getAllLegalMoves(near, 'red').length).toBeGreaterThan(0);
+    expect(evaluateGame(record(near), rules)).toBeNull();
+  });
+
+  it('CORE-04: reads the configured no-capture limit rather than a hardcoded 120', () => {
+    const custom = { version: 'test', noCaptureLimitPlies: 10 };
+    expect(evaluateGame(record({ ...ongoing, halfmoveClock: 10 }), custom))
+      .toEqual({ winner: null, reason: 'MOVE_LIMIT' });
+    expect(evaluateGame(record({ ...ongoing, halfmoveClock: 9 }), custom)).toBeNull();
+    expect(evaluateGame(record({ ...ongoing, halfmoveClock: 10 }), CASUAL_RULESET)).toBeNull();
+  });
+
+  it('CORE-04: generals alone is insufficient material', () => {
+    const generals = position('red', ['d0', 'red', 'GENERAL'], ['e9', 'black', 'GENERAL']);
+    expect(getAllLegalMoves(generals, 'red').length).toBeGreaterThan(0);
+    expect(evaluateGame(record(generals), rules))
+      .toEqual({ winner: null, reason: 'INSUFFICIENT_MATERIAL' });
+  });
+
+  it('CORE-04: one side keeping attacking material means the game is not insufficient', () => {
+    const redRook = position('red', ['d0', 'red', 'GENERAL'], ['a0', 'red', 'CHARIOT'], ['e9', 'black', 'GENERAL'], ['d9', 'black', 'ADVISOR']);
+    expect(evaluateGame(record(redRook), rules)).toBeNull();
+    const blackSoldier = position('red', ['d0', 'red', 'GENERAL'], ['e1', 'red', 'ADVISOR'], ['e9', 'black', 'GENERAL'], ['a6', 'black', 'SOLDIER']);
+    expect(evaluateGame(record(blackSoldier), rules)).toBeNull();
+  });
+
+  it('CORE-04: advisors and elephants are not attacking material', () => {
+    const defensive = position(
+      'red',
+      ['d0', 'red', 'GENERAL'], ['e1', 'red', 'ADVISOR'], ['f0', 'red', 'ADVISOR'], ['c0', 'red', 'ELEPHANT'], ['g2', 'red', 'ELEPHANT'],
+      ['e9', 'black', 'GENERAL'], ['d7', 'black', 'ADVISOR'], ['f9', 'black', 'ADVISOR'], ['a7', 'black', 'ELEPHANT'], ['g9', 'black', 'ELEPHANT'],
+    );
+    expect(getAllLegalMoves(defensive, 'red').length).toBeGreaterThan(0);
+    expect(evaluateGame(record(defensive), rules))
+      .toEqual({ winner: null, reason: 'INSUFFICIENT_MATERIAL' });
   });
 });

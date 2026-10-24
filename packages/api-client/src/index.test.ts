@@ -105,4 +105,46 @@ describe('@xq/api-client', () => {
       body: JSON.stringify({ timeControl: { initialMs: 600_000, incrementMs: 5_000 }, hostColor: 'red' }),
     }));
   });
+
+  it('parses content endpoint responses', async () => {
+    const lesson = { slug: 'khai-cuoc', title: 'Khai cuộc cơ bản', level: 'beginner' as const };
+    const puzzle = {
+      id: 'puzzle-1', title: 'Chiếu bí', difficulty: 2, objective: 'Chiếu hết trong một nước',
+      initialFen: 'test-fen', sideToMove: 'red' as const, solutionLines: [['h2e2']],
+      allowedAlternatives: [], hints: [], source: 'unit-test',
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse([lesson])));
+    await expect(client().getLessons()).resolves.toEqual([lesson]);
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ ...lesson, steps: [] })));
+    await expect(client().getLesson('khai-cuoc')).resolves.toEqual({ ...lesson, steps: [] });
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse([{ id: puzzle.id, title: puzzle.title, difficulty: puzzle.difficulty }])));
+    await expect(client().getPuzzles()).resolves.toEqual([{ id: puzzle.id, title: puzzle.title, difficulty: puzzle.difficulty }]);
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(puzzle)));
+    await expect(client().getPuzzle('puzzle-1')).resolves.toEqual(puzzle);
+
+    const attemptFetch = vi.fn().mockResolvedValue(jsonResponse({ status: 'completed', attempts: 2 }));
+    vi.stubGlobal('fetch', attemptFetch);
+    await expect(client().recordPuzzleAttempt('puzzle-1', { completed: true, hintsUsed: 1 }))
+      .resolves.toEqual({ status: 'completed', attempts: 2 });
+    expect(attemptFetch).toHaveBeenCalledWith('http://localhost:3001/api/v1/puzzles/puzzle-1/attempts', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ completed: true, hintsUsed: 1 }),
+    }));
+  });
+
+  it('parses GET /me/games', async () => {
+    const response = { games: [{ gameId: 'g1', opponent: null, status: 'ACTIVE' as const, result: null }] };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(response));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(client().getMyGames()).resolves.toEqual(response);
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3001/api/v1/me/games', expect.objectContaining({
+      method: 'GET',
+      credentials: 'include',
+    }));
+  });
 });

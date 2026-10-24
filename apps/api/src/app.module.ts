@@ -9,6 +9,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { GamesModule } from './modules/games/games.module';
 import { AiModule } from './modules/ai/ai.module';
+import { ContentModule } from './modules/content/content.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AiModule } from './modules/ai/ai.module';
     GamesModule,
     RoomsModule,
     AiModule,
+    ContentModule,
   ],
   providers: [ApiExceptionFilter],
 })

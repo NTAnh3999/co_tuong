@@ -10,12 +10,19 @@ import {
   getGameMovesQuerySchema,
   getGameMovesResponseSchema,
   getGameResponseSchema,
+  getLessonResponseSchema,
+  getLessonsResponseSchema,
+  getMyGamesResponseSchema,
   getMeResponseSchema,
+  getPuzzleResponseSchema,
+  getPuzzlesResponseSchema,
   getRoomResponseSchema,
   isApiError,
   joinRoomRequestSchema,
   joinRoomResponseSchema,
   resignGameResponseSchema,
+  recordPuzzleAttemptRequestSchema,
+  recordPuzzleAttemptResponseSchema,
   updateMeRequestSchema,
   updateMeResponseSchema,
 } from '@xq/shared-contracts';
@@ -31,11 +38,18 @@ import type {
   GetGameMovesQuery,
   GetGameMovesResponse,
   GetGameResponse,
+  GetLessonResponse,
+  GetLessonsResponse,
+  GetMyGamesResponse,
   GetMeResponse,
+  GetPuzzleResponse,
+  GetPuzzlesResponse,
   GetRoomResponse,
   JoinRoomRequest,
   JoinRoomResponse,
   ResignGameResponse,
+  RecordPuzzleAttemptRequest,
+  RecordPuzzleAttemptResponse,
   UpdateMeRequest,
   UpdateMeResponse,
 } from '@xq/shared-contracts';
@@ -71,6 +85,12 @@ export interface ApiClient {
   resignGame(id: string): Promise<ResignGameResponse>;
   offerDraw(id: string, payload: DrawOfferRequest): Promise<DrawOfferResponse>;
   createAiGame(payload: CreateAiGameRequest): Promise<CreateAiGameResponse>;
+  getLessons(): Promise<GetLessonsResponse>;
+  getLesson(slug: string): Promise<GetLessonResponse>;
+  getPuzzles(): Promise<GetPuzzlesResponse>;
+  getPuzzle(id: string): Promise<GetPuzzleResponse>;
+  recordPuzzleAttempt(id: string, payload: RecordPuzzleAttemptRequest): Promise<RecordPuzzleAttemptResponse>;
+  getMyGames(): Promise<GetMyGamesResponse>;
 }
 
 type Schema<T> = z.ZodType<T>;
@@ -150,6 +170,25 @@ export function createApiClient({ baseUrl }: ApiClientOptions): ApiClient {
     },
     getMe() {
       return request('/me', 'GET', getMeResponseSchema);
+    },
+    getLessons() {
+      return request('/lessons', 'GET', getLessonsResponseSchema);
+    },
+    getLesson(slug) {
+      return request(`/lessons/${encodeURIComponent(slug)}`, 'GET', getLessonResponseSchema);
+    },
+    getPuzzles() {
+      return request('/puzzles', 'GET', getPuzzlesResponseSchema);
+    },
+    getPuzzle(id) {
+      return request(`/puzzles/${encodeURIComponent(id)}`, 'GET', getPuzzleResponseSchema);
+    },
+    async recordPuzzleAttempt(id, payload) {
+      const validPayload = recordPuzzleAttemptRequestSchema.parse(payload);
+      return request(`/puzzles/${encodeURIComponent(id)}/attempts`, 'POST', recordPuzzleAttemptResponseSchema, validPayload);
+    },
+    getMyGames() {
+      return request('/me/games', 'GET', getMyGamesResponseSchema);
     },
     async updateMe(payload) {
       const validPayload = updateMeRequestSchema.parse(payload);

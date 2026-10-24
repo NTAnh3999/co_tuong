@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import {
   gameSnapshotSchema,
+  gameResultSchema,
+  gameStatusSchema,
+  lessonDetailSchema,
+  lessonSummarySchema,
+  puzzleDetailSchema,
+  puzzleSummarySchema,
   roomSnapshotSchema,
   timeControlSchema,
   userSummarySchema,
@@ -41,6 +47,27 @@ export const resignGameResponseSchema = gameSnapshotSchema;
 export const drawOfferRequestSchema = z.object({ action: z.enum(['offer', 'accept', 'decline']) });
 export const drawOfferResponseSchema = gameSnapshotSchema;
 
+export const getLessonsResponseSchema = z.array(lessonSummarySchema);
+export const getLessonResponseSchema = lessonDetailSchema;
+export const getPuzzlesResponseSchema = z.array(puzzleSummarySchema);
+export const getPuzzleResponseSchema = puzzleDetailSchema;
+export const recordPuzzleAttemptRequestSchema = z.object({
+  completed: z.boolean(),
+  hintsUsed: z.number().int().nonnegative(),
+});
+export const recordPuzzleAttemptResponseSchema = z.object({
+  status: z.enum(['in_progress', 'completed']),
+  attempts: z.number().int(),
+});
+export const getMyGamesResponseSchema = z.object({
+  games: z.array(z.object({
+    gameId: z.string(),
+    opponent: z.object({ id: z.string(), nickname: z.string() }).nullable(),
+    status: gameStatusSchema,
+    result: gameResultSchema.nullable(),
+  })),
+});
+
 export const createAiGameRequestSchema = z.object({
   color: z.enum(['red', 'black']),
   difficulty: z.enum(['easy', 'medium', 'hard']),
@@ -64,5 +91,12 @@ export type GetGameMovesResponse = z.infer<typeof getGameMovesResponseSchema>;
 export type ResignGameResponse = z.infer<typeof resignGameResponseSchema>;
 export type DrawOfferRequest = z.infer<typeof drawOfferRequestSchema>;
 export type DrawOfferResponse = z.infer<typeof drawOfferResponseSchema>;
+export type GetLessonsResponse = z.infer<typeof getLessonsResponseSchema>;
+export type GetLessonResponse = z.infer<typeof getLessonResponseSchema>;
+export type GetPuzzlesResponse = z.infer<typeof getPuzzlesResponseSchema>;
+export type GetPuzzleResponse = z.infer<typeof getPuzzleResponseSchema>;
+export type RecordPuzzleAttemptRequest = z.infer<typeof recordPuzzleAttemptRequestSchema>;
+export type RecordPuzzleAttemptResponse = z.infer<typeof recordPuzzleAttemptResponseSchema>;
+export type GetMyGamesResponse = z.infer<typeof getMyGamesResponseSchema>;
 export type CreateAiGameRequest = z.infer<typeof createAiGameRequestSchema>;
 export type CreateAiGameResponse = z.infer<typeof createAiGameResponseSchema>;

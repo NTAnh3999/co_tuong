@@ -72,6 +72,38 @@ export type UserSummary = z.infer<typeof userSummarySchema>;
 export const uciMoveSchema = z.string().regex(/^[a-i][0-9][a-i][0-9]$/);
 export type UciMove = z.infer<typeof uciMoveSchema>;
 
+export const lessonStepSchema = z.object({
+  fen: z.string(),
+  caption: z.string(),
+  highlightSquares: z.array(squareSchema),
+});
+export const lessonSummarySchema = z.object({
+  slug: z.string(),
+  title: z.string(),
+  level: z.enum(['beginner', 'intermediate', 'advanced']),
+});
+export const lessonDetailSchema = lessonSummarySchema.extend({ steps: z.array(lessonStepSchema) });
+export type LessonStep = z.infer<typeof lessonStepSchema>;
+export type LessonSummary = z.infer<typeof lessonSummarySchema>;
+export type LessonDetail = z.infer<typeof lessonDetailSchema>;
+
+export const puzzleSummarySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  difficulty: z.number().int().min(1).max(5),
+});
+export const puzzleDetailSchema = puzzleSummarySchema.extend({
+  objective: z.string(),
+  initialFen: z.string(),
+  sideToMove: colorSchema,
+  solutionLines: z.array(z.array(uciMoveSchema)),
+  allowedAlternatives: z.array(z.array(uciMoveSchema)),
+  hints: z.array(z.string()),
+  source: z.string(),
+});
+export type PuzzleSummary = z.infer<typeof puzzleSummarySchema>;
+export type PuzzleDetail = z.infer<typeof puzzleDetailSchema>;
+
 export const gameSnapshotSchema = z.object({
   gameId: z.string(),
   status: gameStatusSchema,

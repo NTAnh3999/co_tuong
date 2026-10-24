@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { createInitialPosition, toFen } from '@xq/xiangqi-core';
 import type { RoomSnapshot, TimeControl, UserSummary } from '@xq/shared-contracts';
@@ -20,6 +21,7 @@ export class RoomsService {
     private readonly prisma: PrismaService,
     private readonly sessions: SessionsService,
     private readonly games: GamesService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async createRoom(host: UserSummary, timeControl: TimeControl, hostColor: 'red' | 'black' | 'random'): Promise<RoomSnapshot> {
@@ -40,7 +42,9 @@ export class RoomsService {
           });
           return created;
         });
-        return this.toSnapshot(room);
+        const snapshot = this.toSnapshot(room);
+        this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId });
+        return snapshot;
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && attempt + 1 < MAX_CODE_ATTEMPTS) {
           continue;
@@ -79,7 +83,11 @@ export class RoomsService {
 
     if (result.type === 'not-found') throw new NotFoundException('ROOM_NOT_FOUND');
     if (result.type === 'full') throw new ConflictException('ROOM_FULL');
-    if (result.type !== 'joined' || result.room.members.length !== 2) return this.toSnapshot(result.room);
+    if (result.type !== 'joined' || result.room.members.length !== 2) {
+      const snapshot = this.toSnapshot(result.room);
+      if (result.type === 'joined') this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId });
+      return snapshot;
+    }
 
     const red = result.room.members.find(({ color }) => color === 'RED');
     const black = result.room.members.find(({ color }) => color === 'BLACK');
@@ -97,12 +105,23 @@ export class RoomsService {
       data: { gameId, status: 'STARTED' },
       include: { members: { include: { user: true } } },
     });
-    return this.toSnapshot(started);
+    const snapshot = this.toSnapshot(started);
+    this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId, gameId });
+    return snapshot;
   }
 
   async getRoom(code: string): Promise<RoomSnapshot> {
     const room = await this.prisma.room.findUnique({
       where: { code },
+      include: { members: { include: { user: true } } },
+    });
+    if (!room) throw new NotFoundException('ROOM_NOT_FOUND');
+    return this.toSnapshot(room);
+  }
+
+  async getRoomById(roomId: string): Promise<RoomSnapshot> {
+    const room = await this.prisma.room.findUnique({
+      where: { id: roomId },
       include: { members: { include: { user: true } } },
     });
     if (!room) throw new NotFoundException('ROOM_NOT_FOUND');

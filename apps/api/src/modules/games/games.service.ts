@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { applyMove, CASUAL_RULESET, decodeMove, encodeMove, evaluateGame, fromFen, toFen } from '@xq/xiangqi-core';
 import type { Color, Move } from '@xq/xiangqi-core';
@@ -11,7 +12,10 @@ type DbClient = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
 export class GamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
+  ) {}
 
   async createGame(initialFen: string, timeControl: TimeControl | null, redId: string | null, blackId: string | null): Promise<{ gameId: string }> {
     const now = Date.now();
@@ -39,7 +43,7 @@ export class GamesService {
 
   async submitMove(gameId: string, command: SubmitMoveCommand): Promise<SubmitMoveOutcome> {
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const outcome = await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
         const state = await this.reconstruct(tx, gameId);
         const outcome = submitMove(state, command, Date.now());
@@ -76,6 +80,12 @@ export class GamesService {
         }
         return outcome;
       });
+      if (outcome.type === 'accepted') {
+        this.eventEmitter?.emit('game.updated', {
+          gameId, kind: 'move', moveId: command.moveId, move: command.move,
+        });
+      }
+      return outcome;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return { type: 'rejected', reason: 'VERSION_CONFLICT' };
@@ -153,7 +163,9 @@ export class GamesService {
         resultReason: result.reason, finishedAt: new Date(), drawOfferBy: null, drawOfferPly: null,
       } });
     });
-    return this.getSnapshot(gameId);
+    const snapshot = await this.getSnapshot(gameId);
+    this.eventEmitter?.emit('game.updated', { gameId, kind: 'resign' });
+    return snapshot;
   }
 
   async drawOffer(gameId: string, color: Color, action: 'offer' | 'accept' | 'decline'): Promise<GameSnapshot> {
@@ -185,7 +197,30 @@ export class GamesService {
         resultReason: result.reason, finishedAt: new Date(), drawOfferBy: null, drawOfferPly: null,
       } });
     });
-    return this.getSnapshot(gameId);
+    const snapshot = await this.getSnapshot(gameId);
+    this.eventEmitter?.emit('game.updated', { gameId, kind: 'draw' });
+    return snapshot;
+  }
+
+  async abandon(gameId: string, loser: Color): Promise<GameSnapshot> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
+      const state = await this.reconstruct(tx, gameId);
+      if (state.status !== 'ACTIVE') throw new ConflictException('GAME_NOT_ACTIVE');
+      const result = evaluateGame({
+        initialFen: state.initialFen, moves: state.moves, ruleSetVersion: CASUAL_RULESET.version,
+        terminalEvent: { type: 'ABANDONMENT', loser },
+      }, CASUAL_RULESET);
+      if (result === null) throw new ConflictException('GAME_NOT_ACTIVE');
+      await tx.game.update({ where: { id: gameId }, data: {
+        status: 'FINISHED', gameVersion: state.gameVersion + 1,
+        resultWinner: result.winner === null ? null : result.winner === 'red' ? 'RED' : 'BLACK',
+        resultReason: result.reason, finishedAt: new Date(), drawOfferBy: null, drawOfferPly: null,
+      } });
+    });
+    const snapshot = await this.getSnapshot(gameId);
+    this.eventEmitter?.emit('game.updated', { gameId, kind: 'abandonment' });
+    return snapshot;
   }
 
   private async playerId(tx: DbClient, gameId: string, color: Color): Promise<string | null> {

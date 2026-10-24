@@ -266,6 +266,12 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.2.3
         version: 1.5.0(@types/react@19.3.0)(react@19.3.1)
+      '@xq/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@xq/shared-contracts':
+        specifier: workspace:*
+        version: link:../../packages/shared-contracts
       '@xq/xiangqi-core':
         specifier: workspace:*
         version: link:../../packages/xiangqi-core

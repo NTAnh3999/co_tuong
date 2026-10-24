@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build, lint, typecheck, and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.15.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @xq/api exec prisma generate
+      - name: Build, lint, typecheck, and test all packages
+        run: pnpm turbo run build lint typecheck test
+      - name: Enforce xiangqi-core coverage thresholds
+        run: pnpm --filter @xq/xiangqi-core test:coverage
+
+  e2e:
+    name: Playwright E2E with PostgreSQL and API
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: xq
+          POSTGRES_PASSWORD: xq_dev_password
+          POSTGRES_DB: xq_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xq -d xq_dev"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://xq:xq_dev_password@localhost:5432/xq_test
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
+      PORT: 3001
+      WEB_ORIGIN: http://127.0.0.1:4173
+      NODE_ENV: development
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.15.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @xq/api exec prisma generate
+      - name: Build API, web, and dependencies
+        run: pnpm turbo run build --filter=@xq/api --filter=@xq/web
+      - name: Create test database
+        run: psql postgresql://xq:xq_dev_password@localhost:5432/xq_dev -v ON_ERROR_STOP=1 -c 'CREATE DATABASE xq_test'
+      - name: Apply API migrations
+        run: pnpm --filter @xq/api exec prisma migrate deploy
+      - name: Seed lessons and puzzles
+        run: pnpm --filter @xq/content content:seed
+      - name: Start API and wait for health check
+        run: |
+          pnpm --filter @xq/api start > "$RUNNER_TEMP/api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/api.pid"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3001/api/v1/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/api.log"
+          echo "API health check did not become ready" >&2
+          exit 1
+      - name: Install Playwright Chromium
+        run: pnpm --filter @xq/web exec playwright install --with-deps chromium
+      - name: Run desktop Chromium E2E suite
+        run: pnpm --filter @xq/web exec playwright test --project=desktop-chromium --reporter=html
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

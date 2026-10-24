@@ -22,9 +22,15 @@ export function setPosition(
 export async function perft(
   engine: EngineProcess,
   depth: number,
+  timeoutMs = 10_000,
 ): Promise<{ moves: Record<string, number>; total: number }> {
   if (!Number.isInteger(depth) || depth < 0) throw new Error('Perft depth must be a non-negative integer');
-  const response = engine.waitFor((line) => /^\s*Nodes searched:\s*\d+\s*$/i.test(line));
+  // A deep perft search can legitimately run past the default 10s: a response that arrives
+  // after this waiter times out would otherwise sit unread and get misattributed to whichever
+  // waitFor() call comes next on this same engine (see EngineProcess.drainLines), silently
+  // corrupting an unrelated result instead of failing loudly. Callers running deep searches
+  // must pass a timeout generous enough for that depth.
+  const response = engine.waitFor((line) => /^\s*Nodes searched:\s*\d+\s*$/i.test(line), timeoutMs);
   engine.send(`go perft ${depth}`);
   const lines = await response;
   const totalLine = lines.find((line) => /^\s*Nodes searched:/i.test(line));

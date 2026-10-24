@@ -21,4 +21,11 @@ describe.skipIf(!process.env.PIKAFISH_PATH)('Pikafish live oracle cross-check', 
     setPosition(engine, { fen });
     await expect(perft(engine, 2)).resolves.toEqual(divide(fromFen(fen), 2));
   }, 30_000);
+
+  it.each(livePositions)('matches $id at depth 4', async ({ id, fen }) => {
+    setPosition(engine, { fen });
+    // Depth 4 can run well past the UCI helper's 10s default wait -- a timed-out waiter would
+    // leave a late response to be misread by the NEXT test's waiter instead of this one's.
+    await expect(perft(engine, 4, 170_000)).resolves.toEqual(divide(fromFen(fen), 4));
+  }, 180_000);
 });

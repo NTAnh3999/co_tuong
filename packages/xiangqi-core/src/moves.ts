@@ -128,13 +128,16 @@ function generate(position: Position, from: Square, piece: Piece, attacksOnly = 
   return moves;
 }
 
-/** Returns the piece's pseudo-legal moves, independent of `position.turn`. */
+/**
+ * Returns the piece's pseudo-legal moves (ignoring check and `position.turn`). Returns `[]` for an
+ * empty square. Pure; does not mutate `position`.
+ */
 export function getPseudoLegalMoves(position: Position, square: Square): Move[] {
   const piece = position.board[squareToIndex(square)];
   return piece === null || piece === undefined ? [] : generate(position, square, piece);
 }
 
-/** Returns all pseudo-legal moves belonging to `color`. */
+/** Returns all pseudo-legal moves for `color`'s pieces (ignoring check). Pure. */
 export function getAllPseudoLegalMoves(position: Position, color: Color): Move[] {
   const moves: Move[] = [];
   for (let index = 0; index < position.board.length; index += 1) {
@@ -145,7 +148,10 @@ export function getAllPseudoLegalMoves(position: Position, color: Color): Move[]
   return moves;
 }
 
-/** True when a piece of `byColor` has a capture pattern reaching `square`. */
+/**
+ * True when a piece of `byColor` attacks `square`. Uses capture patterns only, so a Cannon's
+ * quiet (non-capturing) moves do not count as attacks. Pure.
+ */
 export function isSquareAttacked(position: Position, square: Square, byColor: Color): boolean {
   for (let index = 0; index < position.board.length; index += 1) {
     const piece = position.board[index];

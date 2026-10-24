@@ -5,6 +5,7 @@ const BACK_RANK: readonly PieceType[] = [
   'ADVISOR', 'ELEPHANT', 'HORSE', 'CHARIOT',
 ];
 
+/** Returns a fresh standard starting position with Red to move. Each call builds a new object. */
 export function createInitialPosition(): Position {
   const board: (Piece | null)[] = Array.from({ length: 90 }, () => null);
   const place = (file: number, rank: number, color: Color, type: PieceType): void => {

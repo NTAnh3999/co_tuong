@@ -15,6 +15,10 @@ function validatePosition(position: Position): void {
   if (!Number.isSafeInteger(position.fullmoveNumber) || position.fullmoveNumber < 1) throw new Error('Invalid fullmove number');
 }
 
+/**
+ * Serializes a position to Xiangqi FEN in Pikafish/UCCI form (ADR-018). Fields 3-4 are always
+ * `- -`. Throws if the board size, side, counters, or any piece is invalid.
+ */
 export function toFen(position: Position): string {
   validatePosition(position);
   const rows: string[] = [];
@@ -41,6 +45,10 @@ export function toFen(position: Position): string {
   return `${rows.join('/')} ${position.turn === 'red' ? 'w' : 'b'} - - ${position.halfmoveClock} ${position.fullmoveNumber}`;
 }
 
+/**
+ * Parses a Xiangqi FEN (ADR-018 / UCCI form) into a `Position`. Throws on malformed rows, bad
+ * counters, a non-empty castling/en-passant field, or a missing/misplaced General.
+ */
 export function fromFen(fen: string): Position {
   const fields = fen.trim().split(/\s+/);
   if (fields.length !== 6) throw new Error('FEN must contain exactly six fields');

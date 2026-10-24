@@ -1,3 +1,7 @@
+/**
+ * Public API of `@xq/xiangqi-core`: a pure Xiangqi rules engine (ADR-018 coordinates/FEN/UCI,
+ * ADR-017 casual ruleset). Consumers should import only from this entry point.
+ */
 export type { Color, Move, Piece, PieceType, Position, Square } from './types.js';
 export { toSquare, squareToIndex, indexToSquare } from './square.js';
 export { createInitialPosition } from './position.js';

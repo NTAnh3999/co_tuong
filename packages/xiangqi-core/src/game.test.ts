@@ -176,6 +176,37 @@ describe('CORE-05: repetition and perpetual-check adjudication', () => {
   });
 
   it.todo('CORE-05: mutual perpetual check (both sides check every own move) resolves as REPETITION; no fixture found yet');
+
+  it('CORE-05: locks in the earliest 3rd-occurrence result even if the record keeps going (T1.10 regression)', () => {
+    // Found by the T1.10 independent review: the original repetitionResult() only looked
+    // at whether the FINAL position's key had reached 3+ occurrences "by the end," using
+    // the window from the 1st occurrence to the LAST one. That let trailing moves recorded
+    // after the true 3rd occurrence silently overturn an already-decided PERPETUAL_CHECK
+    // into a REPETITION draw. The fix adjudicates at the earliest 3rd occurrence instead.
+    // Extra Advisors (far from the checking dance on files d/e) give both sides a legal,
+    // non-checking "there and back" pair of moves to pad the game with, without touching
+    // the Chariot/General/Soldier that drive the actual repeating check pattern.
+    const checking = position(
+      'red',
+      ['d0', 'red', 'GENERAL'], ['d5', 'red', 'SOLDIER'], ['d8', 'red', 'CHARIOT'], ['f0', 'red', 'ADVISOR'],
+      ['e9', 'black', 'GENERAL'], ['f9', 'black', 'ADVISOR'],
+    );
+    const trueEndingMoves = ['d8e8', 'e9d9', 'e8d8', 'd9e9', 'd8e8', 'e9d9', 'e8d8', 'd9e9'];
+    const nonCheckingTrailingMoves = ['f0e1', 'f9e8', 'e1f0', 'e8f9'];
+    const extended = record(checking, [...trueEndingMoves, ...nonCheckingTrailingMoves]);
+
+    // Sanity-check the premise: the 4 trailing moves bring the SAME position key back a
+    // 4th time, and none of the trailing Advisor shuffles deliver check.
+    const steps = replay(extended);
+    expect(positionKey(steps[12]!.position)).toBe(positionKey(steps[8]!.position));
+    expect(steps[9]?.isCheck).toBe(false);
+    expect(steps[10]?.isCheck).toBe(false);
+    expect(steps[11]?.isCheck).toBe(false);
+    expect(steps[12]?.isCheck).toBe(false);
+
+    expect(evaluateGame(extended, { version: 'test', noCaptureLimitPlies: 120 }))
+      .toEqual({ winner: 'black', reason: 'PERPETUAL_CHECK' });
+  });
 });
 
 describe('CORE-04: no-capture limit and insufficient material', () => {

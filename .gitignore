@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.log
+
+# engine binaries, fetched by T0.0, not committed
+tools/pikafish/
+
+# per-task dispatch run logs (briefs themselves ARE committed)
+.agents/runs/
+
+.env
+.env.local
+!.env.example
+
+.DS_Store
+Thumbs.db

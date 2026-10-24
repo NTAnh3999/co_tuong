@@ -1,1 +1,4 @@
-export const packageName = '@xq/shared-contracts' as const;
+export * from './domain.js';
+export * from './errors.js';
+export * from './rest.js';
+export * from './sockets.js';

@@ -181,3 +181,6 @@ export function createApiClient({ baseUrl }: ApiClientOptions): ApiClient {
   };
 }
 
+export { createGameSocket } from './socket.js';
+export type { GameSocket, GameSocketHandlers } from './socket.js';
+

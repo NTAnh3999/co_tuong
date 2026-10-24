@@ -4,3 +4,4 @@ export { createInitialPosition } from './position.js';
 export { toFen, fromFen } from './fen.js';
 export { encodeMove, decodeMove } from './move.js';
 export { getPseudoLegalMoves, getAllPseudoLegalMoves, isSquareAttacked } from './moves.js';
+export { isInCheck, getLegalMoves, getAllLegalMoves, isLegalMove, applyMove, perft, divide } from './legality.js';

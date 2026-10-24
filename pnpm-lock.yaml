@@ -427,6 +427,9 @@ importers:
       '@types/node':
         specifier: ^22.15.30
         version: 22.20.5
+      '@xq/xiangqi-core':
+        specifier: workspace:*
+        version: link:../../packages/xiangqi-core
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(@swc/core@1.16.20)(jiti@2.7.0)(postcss@8.5.31)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)

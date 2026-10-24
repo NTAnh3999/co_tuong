@@ -17,6 +17,8 @@ type RoomColor = 'RED' | 'BLACK';
 
 @Injectable()
 export class RoomsService {
+  private readonly rematchVotes = new Map<string, Set<string>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessions: SessionsService,
@@ -42,7 +44,7 @@ export class RoomsService {
           });
           return created;
         });
-        const snapshot = this.toSnapshot(room);
+        const snapshot = this.toSnapshot(room, []);
         this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId });
         return snapshot;
       } catch (error) {
@@ -84,7 +86,7 @@ export class RoomsService {
     if (result.type === 'not-found') throw new NotFoundException('ROOM_NOT_FOUND');
     if (result.type === 'full') throw new ConflictException('ROOM_FULL');
     if (result.type !== 'joined' || result.room.members.length !== 2) {
-      const snapshot = this.toSnapshot(result.room);
+      const snapshot = this.toSnapshot(result.room, this.votesFor(result.room.id));
       if (result.type === 'joined') this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId });
       return snapshot;
     }
@@ -105,7 +107,7 @@ export class RoomsService {
       data: { gameId, status: 'STARTED' },
       include: { members: { include: { user: true } } },
     });
-    const snapshot = this.toSnapshot(started);
+    const snapshot = this.toSnapshot(started, this.votesFor(started.id));
     this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId, gameId });
     return snapshot;
   }
@@ -116,7 +118,7 @@ export class RoomsService {
       include: { members: { include: { user: true } } },
     });
     if (!room) throw new NotFoundException('ROOM_NOT_FOUND');
-    return this.toSnapshot(room);
+    return this.toSnapshot(room, this.votesFor(room.id));
   }
 
   async getRoomById(roomId: string): Promise<RoomSnapshot> {
@@ -125,11 +127,72 @@ export class RoomsService {
       include: { members: { include: { user: true } } },
     });
     if (!room) throw new NotFoundException('ROOM_NOT_FOUND');
-    return this.toSnapshot(room);
+    return this.toSnapshot(room, this.votesFor(room.id));
+  }
+
+  async requestRematch(code: string, user: UserSummary): Promise<RoomSnapshot> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Room" WHERE code = ${code} FOR UPDATE`);
+      const room = await tx.room.findUnique({
+        where: { code },
+        include: { members: { include: { user: true } } },
+      });
+      if (!room) throw new NotFoundException('ROOM_NOT_FOUND');
+      if (!room.members.some(({ userId }) => userId === user.id)) throw new ConflictException('NOT_A_ROOM_MEMBER');
+      if (!room.gameId) throw new ConflictException('ROOM_GAME_NOT_STARTED');
+      const game = await this.games.getSnapshot(room.gameId);
+      if (game.status === 'ACTIVE') throw new ConflictException('GAME_NOT_FINISHED');
+
+      const votes = this.rematchVotes.get(room.id) ?? new Set<string>();
+      votes.add(user.id);
+      this.rematchVotes.set(room.id, votes);
+      const members = room.members;
+      if (members.length !== 2 || !members[0] || !members[1]) {
+        throw new ConflictException('ROOM_MEMBERS_INCOMPLETE');
+      }
+      if (members.some(({ color }) => color === null)) throw new ConflictException('ROOM_COLORS_NOT_ASSIGNED');
+
+      if (members.every(({ userId }) => votes.has(userId))) {
+        const red = members.find(({ color }) => color === 'RED');
+        const black = members.find(({ color }) => color === 'BLACK');
+        if (!red || !black) throw new ConflictException('ROOM_COLORS_NOT_ASSIGNED');
+        const { gameId } = await this.games.createGame(
+          STARTING_FEN,
+          { initialMs: room.initialMs, incrementMs: room.incrementMs },
+          black.userId,
+          red.userId,
+        );
+        await this.games.activateGame(gameId);
+        const updated = await tx.room.update({
+          where: { id: room.id },
+          data: {
+            gameId,
+            members: {
+              update: [
+                { where: { roomId_userId: { roomId: room.id, userId: red.userId } }, data: { color: 'BLACK' } },
+                { where: { roomId_userId: { roomId: room.id, userId: black.userId } }, data: { color: 'RED' } },
+              ],
+            },
+          },
+          include: { members: { include: { user: true } } },
+        });
+        this.rematchVotes.delete(room.id);
+        return { room: updated, gameId, votes: [] as string[] };
+      }
+      return { room, gameId: null, votes: Array.from(votes) };
+    });
+
+    const snapshot = this.toSnapshot(result.room, result.votes);
+    if (result.gameId !== null) this.eventEmitter?.emit('room.updated', { roomId: snapshot.roomId, gameId: result.gameId });
+    return snapshot;
   }
 
   private createCode(): string {
     return Array.from({ length: ROOM_CODE_LENGTH }, () => CODE_CHARACTERS[randomInt(CODE_CHARACTERS.length)]!).join('');
+  }
+
+  private votesFor(roomId: string): string[] {
+    return Array.from(this.rematchVotes.get(roomId) ?? []);
   }
 
   private toSnapshot(room: {
@@ -140,7 +203,7 @@ export class RoomsService {
     incrementMs: number;
     gameId: string | null;
     members: Array<{ userId: string; color: RoomColor | null; isHost: boolean; user: { nickname: string } }>;
-  }): RoomSnapshot {
+  }, rematchVotes: string[]): RoomSnapshot {
     return {
       roomId: room.id,
       code: room.code,
@@ -153,6 +216,7 @@ export class RoomsService {
         isHost: member.isHost,
       })),
       gameId: room.gameId,
+      rematchVotes,
     };
   }
 }

@@ -6,6 +6,7 @@ import {
   userSummarySchema,
   uciMoveSchema,
 } from './domain.js';
+import type { RoomSnapshot } from './domain.js';
 
 export const createGuestRequestSchema = z.object({ nickname: z.string().min(1).max(30) });
 export const createGuestResponseSchema = userSummarySchema;
@@ -21,6 +22,7 @@ export const createRoomResponseSchema = roomSnapshotSchema;
 export const joinRoomRequestSchema = z.object({ nickname: z.string().optional() });
 export const joinRoomResponseSchema = roomSnapshotSchema;
 export const getRoomResponseSchema = roomSnapshotSchema;
+export const requestRematchResponseSchema = roomSnapshotSchema;
 
 export const getGameResponseSchema = gameSnapshotSchema;
 export const getGameMovesQuerySchema = z.object({
@@ -45,10 +47,11 @@ export type GetMeResponse = z.infer<typeof getMeResponseSchema>;
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
 export type UpdateMeResponse = z.infer<typeof updateMeResponseSchema>;
 export type CreateRoomRequest = z.infer<typeof createRoomRequestSchema>;
-export type CreateRoomResponse = z.infer<typeof createRoomResponseSchema>;
+export type CreateRoomResponse = RoomSnapshot;
 export type JoinRoomRequest = z.infer<typeof joinRoomRequestSchema>;
-export type JoinRoomResponse = z.infer<typeof joinRoomResponseSchema>;
-export type GetRoomResponse = z.infer<typeof getRoomResponseSchema>;
+export type JoinRoomResponse = RoomSnapshot;
+export type GetRoomResponse = RoomSnapshot;
+export type RequestRematchResponse = z.infer<typeof requestRematchResponseSchema>;
 export type GetGameResponse = z.infer<typeof getGameResponseSchema>;
 export type GetGameMovesQuery = z.infer<typeof getGameMovesQuerySchema>;
 export type GetGameMovesResponse = z.infer<typeof getGameMovesResponseSchema>;

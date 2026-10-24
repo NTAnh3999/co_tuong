@@ -78,6 +78,6 @@ describe('/room/[code]', () => {
       ...room([{ userId: 'me', nickname: 'Tôi', color: 'red', isHost: true }]),
       status: 'STARTED', gameId: 'game-42',
     }))
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/game/game-42'))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/game/game-42?room=ABCD12'))
   })
 })

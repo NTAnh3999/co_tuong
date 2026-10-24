@@ -106,5 +106,6 @@ export const roomSnapshotSchema = z.object({
   timeControl: timeControlSchema,
   members: z.array(roomMemberSchema),
   gameId: z.string().nullable(),
+  rematchVotes: z.array(z.string()).default([]),
 });
-export type RoomSnapshot = z.infer<typeof roomSnapshotSchema>;
+export type RoomSnapshot = Omit<z.infer<typeof roomSnapshotSchema>, 'rematchVotes'> & { rematchVotes?: string[] };

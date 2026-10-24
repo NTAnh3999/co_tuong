@@ -8,17 +8,31 @@ const harness = vi.hoisted(() => ({
   state: null as OnlineGameControllerState | null,
   listeners: new Set<() => void>(),
   controller: null as unknown,
+  roomCode: null as string | null,
+  routerPush: vi.fn(),
 }))
 
 vi.mock('@/src/features/session/use-session', () => ({
   useSession: () => ({ user: { id: 'spectator', nickname: 'Spectator', type: 'guest' }, status: 'ready' }),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: harness.routerPush }),
+  useSearchParams: () => new URLSearchParams(harness.roomCode ? { room: harness.roomCode } : {}),
+}))
+
 vi.mock('@/src/lib/api-client', () => ({
-  apiClient: { getGame: vi.fn(async () => ({
-    gameId: 'game-1', status: 'ACTIVE', initialFen: 'fen', moves: [], gameVersion: 0,
-    clocks: null, result: null, redPlayerId: 'red-player', blackPlayerId: 'black-player', drawOfferBy: null, serverNow: 1,
-  })), offerDraw: vi.fn() },
+  apiClient: {
+    getGame: vi.fn(async () => ({
+      gameId: 'game-1', status: 'ACTIVE', initialFen: 'fen', moves: [], gameVersion: 0,
+      clocks: null, result: null, redPlayerId: 'red-player', blackPlayerId: 'black-player', drawOfferBy: null, serverNow: 1,
+    })),
+    offerDraw: vi.fn(),
+    getRoom: vi.fn(async () => ({
+      roomId: 'room-1', code: 'ABCD12', status: 'STARTED', timeControl: { initialMs: 600_000, incrementMs: 5_000 },
+      members: [], gameId: 'game-1', rematchVotes: [],
+    })),
+  },
   socketOrigin: () => 'http://localhost:3001',
 }))
 
@@ -26,6 +40,7 @@ vi.mock('@/src/features/game/controller/online-game-controller', () => ({
   createOnlineGameController: vi.fn(() => harness.controller),
 }))
 
+import { apiClient } from '@/src/lib/api-client'
 import OnlineGamePage from './page'
 
 function makeState(overrides: Partial<OnlineGameControllerState> = {}): OnlineGameControllerState {
@@ -52,6 +67,8 @@ async function renderGame() {
 beforeEach(() => {
   harness.state = makeState()
   harness.listeners.clear()
+  harness.roomCode = null
+  harness.routerPush = vi.fn()
   harness.controller = {
     getState: () => harness.state!,
     subscribe: (listener: () => void) => { harness.listeners.add(listener); return () => harness.listeners.delete(listener) },
@@ -59,7 +76,11 @@ beforeEach(() => {
   }
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 describe('SYNC-03: /game/[id] online page', () => {
   it('renders the board non-interactive for a spectator', async () => {
@@ -91,5 +112,36 @@ describe('SYNC-03: /game/[id] online page', () => {
       publish()
     })
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('requests a rematch and navigates once the room reports a new game', async () => {
+    harness.roomCode = 'ABCD12'
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        roomId: 'room-1', code: 'ABCD12', status: 'STARTED', timeControl: { initialMs: 600_000, incrementMs: 5_000 },
+        members: [], gameId: 'game-1', rematchVotes: ['spectator'],
+      }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await renderGame()
+    act(() => { harness.state = makeState({ result: { winner: 'red', reason: 'CHECKMATE' } }); publish() })
+    const rematchButton = await screen.findByRole('button', { name: 'Chơi lại' })
+
+    await act(async () => { rematchButton.click() })
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/rooms/ABCD12/rematch'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(await screen.findByText('Đang chờ đối thủ đồng ý chơi lại...')).toBeInTheDocument()
+
+    vi.mocked(apiClient.getRoom).mockResolvedValueOnce({
+      roomId: 'room-1', code: 'ABCD12', status: 'STARTED', timeControl: { initialMs: 600_000, incrementMs: 5_000 },
+      members: [], gameId: 'game-2', rematchVotes: [],
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(harness.routerPush).toHaveBeenCalledWith('/game/game-2?room=ABCD12')
   })
 })

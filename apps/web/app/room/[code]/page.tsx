@@ -68,7 +68,7 @@ export default function RoomPage({ params }: RoomPageProps) {
   }, [code, sessionStatus, user?.id])
 
   useEffect(() => {
-    if (room?.status === 'STARTED' && room.gameId !== null) router.push(`/game/${room.gameId}`)
+    if (room?.status === 'STARTED' && room.gameId !== null) router.push(`/game/${room.gameId}?room=${code}`)
   }, [room, router])
 
   if (sessionStatus === 'error') {

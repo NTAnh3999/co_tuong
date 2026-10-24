@@ -8,9 +8,11 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { testPrisma } from '../../../test/setup/test-db.js';
 import { SESSION_COOKIE_NAME } from '../sessions/session-identity.js';
 import { SessionsService } from '../sessions/sessions.service.js';
+import { GamesService } from '../games/games.service.js';
 import { RoomsModule } from './rooms.module.js';
 
 const sessions = new SessionsService(testPrisma as unknown as PrismaService);
+const games = new GamesService(testPrisma as unknown as PrismaService);
 const userIds: string[] = [];
 const roomIds: string[] = [];
 const gameIds: string[] = [];
@@ -144,6 +146,101 @@ describe('private rooms (ROOM-01, ROOM-02)', () => {
       .set('Cookie', reader.cookie)
       .expect(200);
     expect(response.body).toMatchObject({ roomId: room.roomId, code: room.code, status: 'WAITING', gameId: null });
+  });
+
+  describe('rematch (ADR-022)', () => {
+    async function createFinishedRoom() {
+      const host = await makeUser(`RematchHost${Math.random()}`);
+      const room = await createRoom(host.cookie, 'red');
+      const guest = await makeUser(`RematchGuest${Math.random()}`);
+      const joined = await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/join`)
+        .set('Cookie', guest.cookie)
+        .send({})
+        .expect(201);
+      const gameId = joined.body.gameId as string;
+      gameIds.push(gameId);
+      await games.resign(gameId, 'black');
+      return { host, guest, room, gameId };
+    }
+
+    it('one member requesting a rematch alone does not start a new game', async () => {
+      const { host, room, gameId } = await createFinishedRoom();
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/rematch`)
+        .set('Cookie', host.cookie)
+        .send({})
+        .expect(201);
+      expect(response.body.gameId).toBe(gameId);
+      expect(response.body.rematchVotes).toEqual([host.user.id]);
+    });
+
+    it('both members requesting a rematch starts a new game with colors swapped', async () => {
+      const { host, guest, room, gameId } = await createFinishedRoom();
+      const before = await testPrisma.roomMember.findMany({ where: { roomId: room.roomId } });
+      const hostColorBefore = before.find((member) => member.userId === host.user.id)?.color;
+      const guestColorBefore = before.find((member) => member.userId === guest.user.id)?.color;
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/rematch`)
+        .set('Cookie', host.cookie)
+        .send({})
+        .expect(201);
+      const second = await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/rematch`)
+        .set('Cookie', guest.cookie)
+        .send({})
+        .expect(201);
+
+      const newGameId = second.body.gameId as string;
+      expect(newGameId).not.toBe(gameId);
+      gameIds.push(newGameId);
+      expect(second.body.rematchVotes).toEqual([]);
+
+      const after = await testPrisma.roomMember.findMany({ where: { roomId: room.roomId } });
+      const hostColorAfter = after.find((member) => member.userId === host.user.id)?.color;
+      const guestColorAfter = after.find((member) => member.userId === guest.user.id)?.color;
+      expect(hostColorAfter).not.toBe(hostColorBefore);
+      expect(guestColorAfter).not.toBe(guestColorBefore);
+
+      // createFinishedRoom() always makes the host RED and the guest BLACK, so after the swap
+      // the previously-black guest should be the new game's red player, and vice versa.
+      expect(hostColorBefore).toBe('RED');
+      expect(guestColorBefore).toBe('BLACK');
+      const newGame = await testPrisma.game.findUniqueOrThrow({ where: { id: newGameId } });
+      expect(newGame.redId).toBe(guest.user.id);
+      expect(newGame.blackId).toBe(host.user.id);
+    });
+
+    it('requesting a rematch before the current game has finished is rejected', async () => {
+      const host = await makeUser(`RematchActiveHost${Math.random()}`);
+      const room = await createRoom(host.cookie, 'red');
+      const guest = await makeUser(`RematchActiveGuest${Math.random()}`);
+      const joined = await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/join`)
+        .set('Cookie', guest.cookie)
+        .send({})
+        .expect(201);
+      gameIds.push(joined.body.gameId as string);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/rematch`)
+        .set('Cookie', host.cookie)
+        .send({})
+        .expect(409);
+      expect(response.body.error.message).toBe('GAME_NOT_FINISHED');
+    });
+
+    it('requesting a rematch as a non-member is rejected', async () => {
+      const { room } = await createFinishedRoom();
+      const outsider = await makeUser(`RematchOutsider${Math.random()}`);
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/rooms/${room.code}/rematch`)
+        .set('Cookie', outsider.cookie)
+        .send({})
+        .expect(409);
+      expect(response.body.error.message).toBe('NOT_A_ROOM_MEMBER');
+    });
   });
 
   it('ROOM-02: rate limits repeated join attempts by IP', async () => {

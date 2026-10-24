@@ -1,10 +1,12 @@
 'use client'
 
 import { Suspense, use, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CASUAL_RULESET, createInitialPosition, replay, toFen } from '@xq/xiangqi-core'
 import type { Color, Piece } from '@xq/xiangqi-core'
 import type { RejectReason } from '@xq/shared-contracts'
 import type { GameSnapshot } from '@xq/shared-contracts'
+import { requestRematchResponseSchema } from '@xq/shared-contracts'
 import { Button } from '@/components/ui/button'
 import ErrorState from '@/src/components/states/ErrorState'
 import LoadingState from '@/src/components/states/LoadingState'
@@ -21,6 +23,7 @@ import { apiClient, socketOrigin } from '@/src/lib/api-client'
 
 type GamePageProps = { params: Promise<{ id: string }> }
 const STARTING_FEN = toFen(createInitialPosition())
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api/v1'
 
 function useCapturedPieces(history: OnlineGameControllerState['history']): readonly Piece[] {
   return useMemo(() => {
@@ -49,20 +52,23 @@ export default function OnlineGamePage({ params }: GamePageProps) {
 
 function ResolvedOnlineGamePage({ params }: GamePageProps) {
   const { id } = use(params)
+  const roomCode = useSearchParams().get('room')
   const { user, status } = useSession()
 
   if (status === 'loading') return <main className="mx-auto flex min-h-screen w-full max-w-xl px-4 py-10"><LoadingState message="Đang tải ván cờ..." /></main>
   if (status === 'error' || !user) return <main className="mx-auto flex min-h-screen w-full max-w-xl px-4 py-10"><ErrorState message="Không thể chuẩn bị tài khoản. Vui lòng tải lại trang." /></main>
-  return <ReadyOnlineGame gameId={id} userId={user.id} />
+  return <ReadyOnlineGame gameId={id} userId={user.id} roomCode={roomCode} />
 }
 
-function ReadyOnlineGame({ gameId, userId }: { gameId: string; userId: string }) {
+function ReadyOnlineGame({ gameId, userId, roomCode }: { gameId: string; userId: string; roomCode: string | null }) {
+  const router = useRouter()
   const [controller] = useState<OnlineGameController>(() => createOnlineGameController(gameId, socketOrigin()))
   const [snapshot, setSnapshot] = useState<GameSnapshot | null>(null)
   const [snapshotError, setSnapshotError] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [showRejection, setShowRejection] = useState(false)
+  const [waitingForRematch, setWaitingForRematch] = useState(false)
   const state = useSyncExternalStore(controller.subscribe, controller.getState, controller.getState)
   const captured = useCapturedPieces(state.history)
 
@@ -96,6 +102,26 @@ function ReadyOnlineGame({ gameId, userId }: { gameId: string; userId: string })
     }
   }, [gameId])
 
+  useEffect(() => {
+    if (!waitingForRematch || !roomCode) return
+    let active = true
+    const poll = async () => {
+      try {
+        const room = await apiClient.getRoom(roomCode)
+        if (active && room.gameId !== null && room.gameId !== gameId) {
+          router.push(`/game/${room.gameId}?room=${encodeURIComponent(roomCode)}`)
+        }
+      } catch {
+        // Continue polling; a transient network failure should not lose the rematch request.
+      }
+    }
+    const interval = window.setInterval(() => { void poll() }, 2000)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+    }
+  }, [gameId, roomCode, router, waitingForRematch])
+
   const myColor: Color | null = snapshot === null
     ? null
     : snapshot.redPlayerId === userId ? 'red'
@@ -111,6 +137,27 @@ function ReadyOnlineGame({ gameId, userId }: { gameId: string; userId: string })
       setSnapshot(await apiClient.offerDraw(gameId, { action }))
     } catch {
       setActionError('Không thể phản hồi đề nghị hòa. Vui lòng thử lại.')
+    }
+  }
+
+  const requestRematch = async () => {
+    if (!roomCode) return
+    setActionError(null)
+    try {
+      const response = await fetch(`${API_BASE_URL.replace(/\/+$/, '')}/rooms/${encodeURIComponent(roomCode)}/rematch`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!response.ok) throw new Error('Rematch request failed')
+      const room = requestRematchResponseSchema.parse(await response.json())
+      if (room.gameId !== null && room.gameId !== gameId) {
+        router.push(`/game/${room.gameId}?room=${encodeURIComponent(roomCode)}`)
+        return
+      }
+      setWaitingForRematch(true)
+    } catch {
+      setActionError('Không thể yêu cầu chơi lại. Vui lòng thử lại.')
     }
   }
 
@@ -152,6 +199,7 @@ function ReadyOnlineGame({ gameId, userId }: { gameId: string; userId: string })
           </div>
         </div>}
         {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+        {waitingForRematch && <p role="status" className="text-sm text-muted-foreground">Đang chờ đối thủ đồng ý chơi lại...</p>}
 
         <div className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold">Nước đi</h2>
@@ -163,7 +211,7 @@ function ReadyOnlineGame({ gameId, userId }: { gameId: string; userId: string })
         </div>
       </aside>
 
-      <ResultDialog result={dismissed ? null : state.result} onClose={() => setDismissed(true)} />
+      <ResultDialog result={dismissed ? null : state.result} onRematch={roomCode ? requestRematch : undefined} onClose={() => setDismissed(true)} />
     </main>
   )
 }

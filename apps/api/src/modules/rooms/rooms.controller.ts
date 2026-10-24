@@ -38,4 +38,9 @@ export class RoomsController {
   getRoom(@Param('code') code: string): Promise<RoomSnapshot> {
     return this.rooms.getRoom(code);
   }
+
+  @Post(':code/rematch')
+  requestRematch(@Param('code') code: string, @CurrentUser() user: UserSummary): Promise<RoomSnapshot> {
+    return this.rooms.requestRematch(code, user);
+  }
 }

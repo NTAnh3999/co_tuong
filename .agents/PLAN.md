@@ -171,6 +171,8 @@ Naming note: per the architecture doc, `lessons`/`puzzles`/`learning_progress` a
 | T7.7 | Haiku | axe-core accessibility pass on every route, 320px overflow check, ≥44px tap targets | WEB-01 |
 | T7.8 | Codex | Baseline perf measurement (room-join/move-accept p95, reconnect success, worker CPU) — baseline only, no SLA | AI-02 |
 | T7.9 | **Orchestrator + user** | Walk release checklist (04§6): ADR approvals, 2-device/2-network smoke test, license sign-off, puzzle editorial review | All |
+| T7.10 | Codex | Fix T7.1's authorization matrix findings: enforce room/game membership on `room:join`/`game:join`/`game:sync` | ROOM-02 |
+| T7.11 | Codex | Fix T7.4's finding: black's client gets stuck on `/room/[code]` and never redirects to `/game/[id]` when the room fills right as its socket subscribes | SYNC-03 |
 
 **Gate:** full regression green in CI; security matrix clean; restore drill done; prod compose up behind HTTPS.
 

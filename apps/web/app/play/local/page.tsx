@@ -9,6 +9,7 @@ import { Board2D } from "@/src/features/game/board/Board2D"
 import { createLocalGameController } from "@/src/features/game/controller/local-game-controller"
 import type { GameController, GameControllerState } from "@/src/features/game/controller/game-controller"
 import { CapturedPieces } from "@/src/features/game/components/CapturedPieces"
+import { ExitToLobbyButton } from "@/src/features/game/components/ExitToLobbyButton"
 import { GameStatusBanner } from "@/src/features/game/components/GameStatusBanner"
 import { MoveList } from "@/src/features/game/components/MoveList"
 import { ResultDialog } from "@/src/features/game/components/ResultDialog"
@@ -51,6 +52,7 @@ export default function LocalGamePage() {
   return (
     <main className="flex min-h-screen flex-col items-center gap-6 bg-background px-4 py-6 text-foreground lg:flex-row lg:items-start lg:justify-center">
       <h1 className="sr-only">Ván cờ địa phương</h1>
+      <ExitToLobbyButton />
       <section className="flex w-full max-w-2xl flex-col items-center gap-3 overflow-x-auto">
         <Board2D
           position={state.position}

@@ -26,11 +26,9 @@ describe("NavBar", () => {
     }
   })
 
-  it("collapses to a compact back-link bar on gameplay routes", () => {
+  it("renders nothing on gameplay routes, leaving room for the board", () => {
     harness.pathname = "/game/abc123"
-    render(<NavBar />)
-
-    expect(screen.queryByRole("link", { name: "Chơi" })).not.toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "‹ Cờ Tướng" })).toHaveAttribute("href", "/")
+    const { container } = render(<NavBar />)
+    expect(container).toBeEmptyDOMElement()
   })
 })

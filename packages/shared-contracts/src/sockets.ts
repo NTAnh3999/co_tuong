@@ -45,6 +45,8 @@ export type GameMoveRejectedPayload = {
   authoritativeVersion: number;
 };
 
+export type SocketMembershipRejectedPayload = { reason: string };
+
 export type GameFinishedPayload = {
   result: z.infer<typeof gameResultSchema>;
   finalVersion: number;
@@ -65,6 +67,9 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   'room:state': (snapshot: RoomStatePayload) => void;
+  'room:join:rejected': (payload: SocketMembershipRejectedPayload) => void;
+  'game:join:rejected': (payload: SocketMembershipRejectedPayload) => void;
+  'game:sync:rejected': (payload: SocketMembershipRejectedPayload) => void;
   'game:move:accepted': (payload: GameMoveAcceptedPayload) => void;
   'game:move:rejected': (payload: GameMoveRejectedPayload) => void;
   'game:state': (snapshot: GameStatePayload) => void;

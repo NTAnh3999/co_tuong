@@ -114,18 +114,136 @@ describe('GameGateway realtime lifecycle (SYNC-01/02/03, ROOM-02)', () => {
     const room = await app.get(RoomsService).createRoom(host, { initialMs: 300_000, incrementMs: 0 }, 'red');
     roomIds.push(room.roomId);
     const hostSocket = await connect(url, host.cookie);
-    const guestSocket = await connect(url, guest.cookie);
     const hostInitial = once<{ roomId: string; status: string }>(hostSocket, 'room:state');
-    const guestInitial = once<{ roomId: string; status: string }>(guestSocket, 'room:state');
     hostSocket.emit('room:join', { roomId: room.roomId });
-    guestSocket.emit('room:join', { roomId: room.roomId });
-    await Promise.all([hostInitial, guestInitial]);
+    expect(await hostInitial).toMatchObject({ roomId: room.roomId, status: 'WAITING' });
+
+    // Guest is not yet a room member, so under ROOM-02 their socket cannot pre-subscribe before
+    // joining via REST; the host's already-subscribed socket still catches the broadcast once the
+    // room starts.
     const hostUpdated = once<{ roomId: string; status: string; gameId: string | null }>(hostSocket, 'room:state');
-    const guestUpdated = once<{ roomId: string; status: string; gameId: string | null }>(guestSocket, 'room:state');
     const started = await app.get(RoomsService).joinRoom(room.code, guest);
     if (started.gameId !== null) gameIds.push(started.gameId);
     expect(await hostUpdated).toMatchObject({ roomId: room.roomId, status: 'STARTED' });
-    expect(await guestUpdated).toMatchObject({ roomId: room.roomId, status: 'STARTED' });
+
+    const guestSocket = await connect(url, guest.cookie);
+    const guestInitial = once<{ roomId: string; status: string }>(guestSocket, 'room:state');
+    guestSocket.emit('room:join', { roomId: room.roomId });
+    expect(await guestInitial).toMatchObject({ roomId: room.roomId, status: 'STARTED' });
+  });
+
+  it('ROOM-02 allows room members to join and rejects non-members without room broadcasts', async () => {
+    const host = await makePlayer('RoomMember');
+    const guest = await makePlayer('RoomOtherMember');
+    const outsider = await makePlayer('RoomOutsider');
+    const room = await app.get(RoomsService).createRoom(host, { initialMs: 300_000, incrementMs: 0 }, 'red');
+    roomIds.push(room.roomId);
+    const hostSocket = await connect(url, host.cookie);
+    const outsiderSocket = await connect(url, outsider.cookie);
+
+    const hostState = once<{ roomId: string; members: Array<{ userId: string }> }>(hostSocket, 'room:state');
+    hostSocket.emit('room:join', { roomId: room.roomId });
+    expect(await hostState).toMatchObject({ roomId: room.roomId, members: [{ userId: host.id }] });
+
+    const rejected = once<{ reason: string }>(outsiderSocket, 'room:join:rejected');
+    const noRoomState = once(outsiderSocket, 'room:state', 300).then(() => false, () => true);
+    outsiderSocket.emit('room:join', { roomId: room.roomId });
+    expect(await rejected).toMatchObject({ reason: 'NOT_A_ROOM_MEMBER' });
+    const hostUpdated = once<{ status: string }>(hostSocket, 'room:state');
+    const started = await app.get(RoomsService).joinRoom(room.code, guest);
+    if (started.gameId !== null) gameIds.push(started.gameId);
+    expect(await hostUpdated).toMatchObject({ status: 'STARTED' });
+    expect(await noRoomState).toBe(true);
+  });
+
+  it('SYNC-03 ROOM-02: a room:join racing a concurrent fill still returns the fresh snapshot, not a stale catch-up', async () => {
+    const host = await makePlayer('RaceHost');
+    const guest = await makePlayer('RaceGuest');
+    const room = await app.get(RoomsService).createRoom(host, { initialMs: 300_000, incrementMs: 0 }, 'red');
+    roomIds.push(room.roomId);
+    const hostSocket = await connect(url, host.cookie);
+
+    // Force the exact window the gateway's room:join must survive: its membership-check read
+    // observes the room before a concurrent fill, the fill commits (member added + STARTED),
+    // and only then does the post-join read run. If room:join emitted the pre-join read instead
+    // of re-reading after subscribing, this would wrongly hand back a stale WAITING snapshot.
+    const roomsService = app.get(RoomsService);
+    const realGetRoomById = roomsService.getRoomById.bind(roomsService);
+    let calls = 0;
+    const spy = vi.spyOn(roomsService, 'getRoomById').mockImplementation(async (roomId: string) => {
+      calls += 1;
+      if (calls === 1) {
+        const snapshot = await realGetRoomById(roomId);
+        const started = await roomsService.joinRoom(room.code, guest);
+        if (started.gameId !== null) gameIds.push(started.gameId);
+        return snapshot;
+      }
+      return realGetRoomById(roomId);
+    });
+
+    const state = once<{ status: string; gameId: string | null }>(hostSocket, 'room:state');
+    hostSocket.emit('room:join', { roomId: room.roomId });
+    expect(await state).toMatchObject({ status: 'STARTED' });
+    spy.mockRestore();
+  });
+
+  it('ROOM-02 allows game players to join and rejects non-players without game broadcasts', async () => {
+    const red = await makePlayer('JoinRed');
+    const black = await makePlayer('JoinBlack');
+    const outsider = await makePlayer('JoinOutsider');
+    const gameId = await makeGame(red.id, black.id);
+    const redSocket = await connect(url, red.cookie);
+    const outsiderSocket = await connect(url, outsider.cookie);
+
+    const redState = once<{ gameId: string; redPlayerId: string }>(redSocket, 'game:state');
+    redSocket.emit('game:join', { gameId });
+    expect(await redState).toMatchObject({ gameId, redPlayerId: red.id });
+
+    const rejected = once<{ reason: string }>(outsiderSocket, 'game:join:rejected');
+    const noInitialState = once(outsiderSocket, 'game:state', 300).then(() => false, () => true);
+    outsiderSocket.emit('game:join', { gameId });
+    expect(await rejected).toMatchObject({ reason: 'NOT_A_PLAYER' });
+    expect(await noInitialState).toBe(true);
+
+    const redAccepted = once(redSocket, 'game:move:accepted');
+    const noAccepted = once(outsiderSocket, 'game:move:accepted', 300).then(() => false, () => true);
+    const noBroadcastState = once(outsiderSocket, 'game:state', 300).then(() => false, () => true);
+    redSocket.emit('game:move', {
+      gameId, moveId: `join-auth-${gameId}`, expectedVersion: 0, move: { from: 'b2', to: 'e2' },
+    });
+    await redAccepted;
+    expect(await Promise.all([noAccepted, noBroadcastState])).toEqual([true, true]);
+  });
+
+  it('ROOM-02 allows game players to sync and rejects non-players without game broadcasts', async () => {
+    const red = await makePlayer('SyncRed');
+    const black = await makePlayer('SyncBlack');
+    const outsider = await makePlayer('SyncOutsider');
+    const gameId = await makeGame(red.id, black.id);
+    const redSocket = await connect(url, red.cookie);
+    const outsiderSocket = await connect(url, outsider.cookie);
+
+    const redJoin = once(redSocket, 'game:state');
+    redSocket.emit('game:join', { gameId });
+    await redJoin;
+    const redSynced = once<{ gameId: string; redPlayerId: string }>(redSocket, 'game:state');
+    redSocket.emit('game:sync', { gameId });
+    expect(await redSynced).toMatchObject({ gameId, redPlayerId: red.id });
+
+    const rejected = once<{ reason: string }>(outsiderSocket, 'game:sync:rejected');
+    const noInitialState = once(outsiderSocket, 'game:state', 300).then(() => false, () => true);
+    outsiderSocket.emit('game:sync', { gameId });
+    expect(await rejected).toMatchObject({ reason: 'NOT_A_PLAYER' });
+    expect(await noInitialState).toBe(true);
+
+    const redAccepted = once(redSocket, 'game:move:accepted');
+    const noAccepted = once(outsiderSocket, 'game:move:accepted', 300).then(() => false, () => true);
+    const noBroadcastState = once(outsiderSocket, 'game:state', 300).then(() => false, () => true);
+    redSocket.emit('game:move', {
+      gameId, moveId: `sync-auth-${gameId}`, expectedVersion: 0, move: { from: 'b2', to: 'e2' },
+    });
+    await redAccepted;
+    expect(await Promise.all([noAccepted, noBroadcastState])).toEqual([true, true]);
   });
 
   it('broadcasts the accepted move and authoritative snapshot to both players', async () => {

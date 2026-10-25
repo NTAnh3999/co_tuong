@@ -32,6 +32,7 @@ type AuthenticatedSocket = Socket & {
   data: {
     user?: { id: string; nickname: string; type: 'guest' | 'registered' };
     joinedGames?: Set<string>;
+    ready?: Promise<void>;
   };
 };
 type GameUpdatedEvent = {
@@ -55,14 +56,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly rooms: RoomsService,
   ) {}
 
-  async handleConnection(client: AuthenticatedSocket): Promise<void> {
-    const user = await resolveSessionFromCookieHeader(client.handshake.headers.cookie, this.prisma);
-    if (user === null) {
-      client.disconnect(true);
-      return;
-    }
-    client.data.user = user;
-    client.data.joinedGames = new Set();
+  handleConnection(client: AuthenticatedSocket): void {
+    // Message handlers can be dispatched before this promise settles (NestJS does not await
+    // handleConnection before binding @SubscribeMessage listeners), so every handler that reads
+    // client.data.user must `await client.data.ready` first rather than assuming it is already set.
+    client.data.ready = resolveSessionFromCookieHeader(client.handshake.headers.cookie, this.prisma).then((user) => {
+      if (user === null) {
+        client.disconnect(true);
+        return;
+      }
+      client.data.user = user;
+      client.data.joinedGames = new Set();
+    });
   }
 
   async handleDisconnect(client: AuthenticatedSocket): Promise<void> {
@@ -80,8 +85,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async joinRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: unknown): Promise<void> {
     const parsed = roomJoinEventSchema.safeParse(body);
     if (!parsed.success) return;
-    const snapshot = await this.rooms.getRoomById(parsed.data.roomId);
+    await client.data.ready;
+    if (client.data.user === undefined) return;
+    const membership = await this.rooms.getRoomById(parsed.data.roomId);
+    if (!membership.members.some(({ userId }) => userId === client.data.user!.id)) {
+      client.emit('room:join:rejected', { reason: 'NOT_A_ROOM_MEMBER' });
+      return;
+    }
+    // Join the broadcast room BEFORE reading the snapshot to emit: if the room fills and starts
+    // concurrently, its room.updated broadcast only reaches sockets already subscribed, so
+    // joining first (then re-reading) guarantees we either observe the fresh state directly or
+    // receive the broadcast ourselves instead of missing both.
     await client.join(parsed.data.roomId);
+    const snapshot = await this.rooms.getRoomById(parsed.data.roomId);
     client.emit('room:state', snapshot);
   }
 
@@ -89,15 +105,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async joinGame(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: unknown): Promise<void> {
     const parsed = gameJoinEventSchema.safeParse(body);
     if (!parsed.success) return;
+    await client.data.ready;
+    if (client.data.user === undefined) return;
+    const players = await this.games.getPlayers(parsed.data.gameId);
+    const userId = client.data.user.id;
+    const color = players.redId === userId ? 'red' : players.blackId === userId ? 'black' : null;
+    if (color === null) {
+      client.emit('game:join:rejected', { reason: 'NOT_A_PLAYER' });
+      return;
+    }
     await client.join(parsed.data.gameId);
     const snapshot = await this.games.getSnapshot(parsed.data.gameId);
-    const players = await this.games.getPlayers(parsed.data.gameId);
-    const userId = client.data.user!.id;
-    const color = players.redId === userId ? 'red' : players.blackId === userId ? 'black' : null;
-    if (color !== null) {
-      client.data.joinedGames!.add(parsed.data.gameId);
-      this.gamePresence(parsed.data.gameId).set(color, { connected: true, disconnectedAt: null });
-    }
+    client.data.joinedGames!.add(parsed.data.gameId);
+    this.gamePresence(parsed.data.gameId).set(color, { connected: true, disconnectedAt: null });
     client.emit('game:state', snapshot);
   }
 
@@ -129,7 +149,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('game:sync')
   async syncGame(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: unknown): Promise<void> {
     const parsed = gameSyncEventSchema.safeParse(body);
-    if (parsed.success) client.emit('game:state', await this.games.getSnapshot(parsed.data.gameId));
+    if (!parsed.success) return;
+    const color = await this.playerColor(client, parsed.data.gameId);
+    if (color === null) {
+      client.emit('game:sync:rejected', { reason: 'NOT_A_PLAYER' });
+      return;
+    }
+    client.emit('game:state', await this.games.getSnapshot(parsed.data.gameId));
   }
 
   @SubscribeMessage('game:resign')
@@ -188,8 +214,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private async playerColor(client: AuthenticatedSocket, gameId: string): Promise<Color | null> {
+    await client.data.ready;
+    if (client.data.user === undefined) return null;
     const players = await this.games.getPlayers(gameId);
-    const userId = client.data.user?.id;
+    const userId = client.data.user.id;
     if (players.redId === userId) return 'red';
     if (players.blackId === userId) return 'black';
     return null;

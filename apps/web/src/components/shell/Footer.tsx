@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 const footerItems = [
   { label: "Luật chơi", href: "/rules" },
@@ -7,7 +10,15 @@ const footerItems = [
   { label: "Giấy phép", href: "/licenses" },
 ]
 
+/** Routes that show a board full-screen: the footer's legal links would just eat space the board needs. */
+function isGameplayRoute(pathname: string): boolean {
+  return pathname.startsWith("/game/") || pathname.startsWith("/play/local")
+}
+
 export default function Footer() {
+  const pathname = usePathname()
+  if (isGameplayRoute(pathname)) return null
+
   return (
     <footer className="mt-auto border-t border-input bg-white">
       <nav

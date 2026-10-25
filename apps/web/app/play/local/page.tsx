@@ -51,7 +51,7 @@ export default function LocalGamePage() {
   return (
     <main className="flex min-h-screen flex-col items-center gap-6 bg-background px-4 py-6 text-foreground lg:flex-row lg:items-start lg:justify-center">
       <h1 className="sr-only">Ván cờ địa phương</h1>
-      <section className="flex w-full max-w-xl flex-col items-center gap-3 overflow-x-auto">
+      <section className="flex w-full max-w-2xl flex-col items-center gap-3 overflow-x-auto">
         <Board2D
           position={state.position}
           orientation={state.orientation}

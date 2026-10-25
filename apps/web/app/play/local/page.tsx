@@ -54,18 +54,21 @@ export default function LocalGamePage() {
       <h1 className="sr-only">Ván cờ địa phương</h1>
       <ExitToLobbyButton />
       <section className="flex w-full max-w-2xl flex-col items-center gap-3 overflow-x-auto">
-        <Board2D
-          position={state.position}
-          orientation={state.orientation}
-          selectedSquare={state.selectedSquare}
-          legalTargets={state.legalTargets}
-          lastMove={state.lastMove}
-          interactive={true}
-          onSquareClick={(square) => controller.selectSquare(square)}
-          onMove={(move) => {
-            controller.submitMove(move)
-          }}
-        />
+        <div className="flex w-full justify-center lg:h-[calc(100vh-3rem)]">
+          <Board2D
+            position={state.position}
+            orientation={state.orientation}
+            selectedSquare={state.selectedSquare}
+            legalTargets={state.legalTargets}
+            lastMove={state.lastMove}
+            interactive={true}
+            onSquareClick={(square) => controller.selectSquare(square)}
+            onMove={(move) => {
+              controller.submitMove(move)
+            }}
+            className="w-full lg:h-full lg:w-auto"
+          />
+        </div>
       </section>
 
       <aside className="flex w-full max-w-sm flex-col gap-4">

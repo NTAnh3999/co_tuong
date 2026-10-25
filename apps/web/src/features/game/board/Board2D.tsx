@@ -13,6 +13,8 @@ export interface Board2DProps {
   readonly interactive: boolean;
   readonly onSquareClick: (square: Square) => void;
   readonly onMove: (move: Move) => void;
+  /** Extra classes on the root <svg>, e.g. to let a caller size the board against viewport height. */
+  readonly className?: string;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'] as const;
@@ -73,6 +75,7 @@ export function Board2D({
   interactive,
   onSquareClick,
   onMove,
+  className,
 }: Board2DProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -233,6 +236,7 @@ export function Board2D({
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       width="100%"
       height="100%"
+      className={className}
       role="grid"
       aria-label="Xiangqi board"
       tabIndex={interactive ? 0 : -1}

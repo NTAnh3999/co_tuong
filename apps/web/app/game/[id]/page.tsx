@@ -176,16 +176,19 @@ function ReadyOnlineGame({ gameId, userId, roomCode }: { gameId: string; userId:
       <section className="flex w-full max-w-2xl flex-col items-center gap-3 overflow-x-auto">
         {state.connectionStatus === 'disconnected' && <p role="alert" className="w-full rounded-md bg-amber-100 px-4 py-3 text-center text-sm text-amber-950">Mất kết nối, đang thử kết nối lại...</p>}
         {showRejection && state.lastRejection && <p role="status" className="text-sm text-destructive">{rejectionText(state.lastRejection.reason)}</p>}
-        <Board2D
-          position={state.position}
-          orientation={orientation}
-          selectedSquare={state.selectedSquare}
-          legalTargets={state.legalTargets}
-          lastMove={state.lastMove}
-          interactive={interactive}
-          onSquareClick={(square) => controller.selectSquare(square)}
-          onMove={(move) => { controller.submitMove(move) }}
-        />
+        <div className="flex w-full justify-center lg:h-[calc(100vh-3rem)]">
+          <Board2D
+            position={state.position}
+            orientation={orientation}
+            selectedSquare={state.selectedSquare}
+            legalTargets={state.legalTargets}
+            lastMove={state.lastMove}
+            interactive={interactive}
+            onSquareClick={(square) => controller.selectSquare(square)}
+            onMove={(move) => { controller.submitMove(move) }}
+            className="w-full lg:h-full lg:w-auto"
+          />
+        </div>
       </section>
 
       <aside className="flex w-full max-w-sm flex-col gap-4">

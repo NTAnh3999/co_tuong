@@ -19,7 +19,13 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.use(cookieParser());
   const config = app.get(ConfigService);
-  app.enableCors({ origin: config.get<string>('WEB_ORIGIN', 'http://localhost:3000'), credentials: true });
+  // WEB_ORIGIN may list several allowed origins separated by commas (e.g. localhost for the host
+  // machine plus its LAN IP for other devices on the same network).
+  const webOrigins = config
+    .get<string>('WEB_ORIGIN', 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim());
+  app.enableCors({ origin: webOrigins, credentials: true });
   app.useGlobalFilters(app.get(ApiExceptionFilter));
   app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();

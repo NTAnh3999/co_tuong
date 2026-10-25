@@ -2,7 +2,7 @@
 
 **ADR-ID:** ADR-021  
 **Ngày:** 2026-10-24  
-**Trạng thái:** Proposed  
+**Trạng thái:** Accepted  
 
 ## Vấn đề
 
@@ -72,4 +72,4 @@ Chọn **chính sách phân cấp**:
 
 ## Người duyệt
 
-Chưa duyệt — chờ xác nhận trước M7
+Đã duyệt 2026-10-25. Bao gồm việc chấp nhận hệ quả đúng theo câu chữ của quyết định: xóa một guest session hết hạn cũng xóa toàn bộ các trò chơi liên kết, kể cả lịch sử chia sẻ với đối thủ đã đăng ký (xem `infrastructure/scripts/purge-stale-data.sql`, đã triển khai ở T7.3). Vị trí lưu trữ backup off-host (mục QUESTIONS của T7.3) vẫn còn mở, chưa quyết định.

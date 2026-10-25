@@ -6,7 +6,7 @@ import type { Color, Move } from '@xq/xiangqi-core';
 import type { ClockState, GameSnapshot, TimeControl } from '@xq/shared-contracts';
 import { createGameAggregate, submitMove } from './domain/game-aggregate.js';
 import type { GameAggregateState, SubmitMoveCommand, SubmitMoveOutcome } from './domain/game-aggregate.js';
-import { isClockExpired, isFirstMoveTimedOut } from './domain/clock.js';
+import { isClockExpired, isFirstMoveTimedOut, remainingMsAt } from './domain/clock.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
@@ -48,8 +48,12 @@ export class GamesService {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
       const state = await this.reconstruct(tx, gameId);
       if (state.status !== 'ACTIVE') return false;
+      // While the active color's clock is paused (they're disconnected), clamp "now" to the
+      // pause instant so a long disconnect never times them out — the clock is frozen, not
+      // running down toward a timeout they have no way to respond to.
+      const effectiveNow = state.clockPausedAt ?? now;
 
-      if (state.clock !== null && state.moves.length < 2 && isFirstMoveTimedOut(state.clock.turnStartedAt, now)) {
+      if (state.clock !== null && state.moves.length < 2 && isFirstMoveTimedOut(state.clock.turnStartedAt, effectiveNow)) {
         await tx.game.update({ where: { id: gameId }, data: {
           status: 'ABORTED', gameVersion: state.gameVersion + 1,
           resultWinner: null, resultReason: 'ABORTED', finishedAt: new Date(now),
@@ -57,7 +61,7 @@ export class GamesService {
         return true;
       }
 
-      const loser = state.clock === null ? null : isClockExpired(state.clock, now);
+      const loser = state.clock === null ? null : isClockExpired(state.clock, effectiveNow);
       if (loser === null) return false;
       const result = evaluateGame({
         initialFen: state.initialFen, moves: state.moves, ruleSetVersion: CASUAL_RULESET.version,
@@ -134,11 +138,61 @@ export class GamesService {
     const state = await this.reconstruct(this.prisma, gameId);
     return {
       gameId, status: state.status, initialFen: state.initialFen,
-      moves: state.moves.map(encodeMove), gameVersion: state.gameVersion, clocks: state.clock,
+      moves: state.moves.map(encodeMove), gameVersion: state.gameVersion,
+      clocks: this.liveClockView(state.clock, state.clockPausedAt),
       result: state.result,
       redPlayerId: game.redId, blackPlayerId: game.blackId,
       drawOfferBy: game.drawOfferBy === null ? null : game.drawOfferBy === 'RED' ? 'red' : 'black',
       serverNow: Date.now(),
+    };
+  }
+
+  /**
+   * Pauses the active color's clock when they disconnect: freezes the remaining time as of the
+   * disconnect instant so a long disconnect never burns their clock. No-op (returns null) unless
+   * the game is active, has a clock, isn't already paused, and `color` is the one on turn.
+   */
+  async pauseClockForDisconnect(gameId: string, color: Color, now = Date.now()): Promise<GameSnapshot | null> {
+    const changed = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
+      const game = await tx.game.findUniqueOrThrow({ where: { id: gameId } });
+      if (game.status !== 'ACTIVE' || game.clockPausedAt !== null || game.turnStartedAt === null) return false;
+      if ((game.activeColor === 'RED' ? 'red' : 'black') !== color) return false;
+      await tx.game.update({ where: { id: gameId }, data: { clockPausedAt: new Date(now) } });
+      return true;
+    });
+    return changed ? this.getSnapshot(gameId) : null;
+  }
+
+  /**
+   * Resumes a paused clock when the color on turn reconnects: shifts turnStartedAt forward by
+   * exactly the paused duration so the disconnect window is excluded from elapsed time. No-op
+   * (returns null) unless the game is active, currently paused, and `color` is the one on turn.
+   */
+  async resumeClockForReconnect(gameId: string, color: Color, now = Date.now()): Promise<GameSnapshot | null> {
+    const changed = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`);
+      const game = await tx.game.findUniqueOrThrow({ where: { id: gameId } });
+      if (game.status !== 'ACTIVE' || game.clockPausedAt === null || game.turnStartedAt === null) return false;
+      if ((game.activeColor === 'RED' ? 'red' : 'black') !== color) return false;
+      const pausedForMs = now - game.clockPausedAt.getTime();
+      await tx.game.update({ where: { id: gameId }, data: {
+        clockPausedAt: null, turnStartedAt: new Date(game.turnStartedAt.getTime() + pausedForMs),
+      } });
+      return true;
+    });
+    return changed ? this.getSnapshot(gameId) : null;
+  }
+
+  /** The clock as clients should see it right now: frozen at the pause instant while paused. */
+  private liveClockView(clock: ClockState | null, pausedAt: number | null): ClockState | null {
+    if (clock === null) return null;
+    if (pausedAt === null) return { ...clock, paused: false };
+    const frozen = remainingMsAt(clock, pausedAt);
+    return {
+      redRemainingMs: frozen.red, blackRemainingMs: frozen.black,
+      activeColor: clock.activeColor, turnStartedAt: clock.turnStartedAt,
+      paused: true,
     };
   }
 
@@ -264,7 +318,7 @@ export class GamesService {
     return color === 'red' ? game.redId : game.blackId;
   }
 
-  private async reconstruct(tx: DbClient, gameId: string): Promise<GameAggregateState> {
+  private async reconstruct(tx: DbClient, gameId: string): Promise<GameAggregateState & { clockPausedAt: number | null }> {
     const game = await tx.game.findUniqueOrThrow({ where: { id: gameId }, include: { moves: { orderBy: { ply: 'asc' } } } });
     const moves: Move[] = game.moves.map(({ uci }) => decodeMove(uci));
     const position = moves.reduce((current, move) => applyMove(current, move), fromFen(game.initialFen));
@@ -282,6 +336,7 @@ export class GamesService {
         winner: game.resultWinner === null ? null : game.resultWinner === 'RED' ? 'red' : 'black',
         reason: game.resultReason as NonNullable<GameAggregateState['result']>['reason'],
       },
+      clockPausedAt: game.clockPausedAt === null ? null : game.clockPausedAt.getTime(),
     };
   }
 }

@@ -167,6 +167,7 @@ model Game {
   blackRemainingMs Int?
   activeColor      Color?
   turnStartedAt    DateTime?
+  clockPausedAt    DateTime?
   resultWinner     Color?
   resultReason     String?
   finishedAt       DateTime?

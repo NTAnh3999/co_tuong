@@ -7,11 +7,24 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 const startFen = 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1';
 const service = new GamesService(testPrisma as unknown as PrismaService);
 const owned: string[] = [];
+const ownedUsers: string[] = [];
 
 async function game(fen = startFen) {
   const created = await service.createGame(fen, null, null, null);
   owned.push(created.gameId);
   await service.activateGame(created.gameId);
+  return created.gameId;
+}
+
+// Pause/resume only affect the active color, so these tests need a real on-turn/off-turn
+// distinction and a real clock — the untimed `game()` helper above has neither.
+async function timedGame(initialMs: number, now: number) {
+  const red = await testPrisma.user.create({ data: { nickname: 'ClockRed', type: 'GUEST' } });
+  const black = await testPrisma.user.create({ data: { nickname: 'ClockBlack', type: 'GUEST' } });
+  ownedUsers.push(red.id, black.id);
+  const created = await service.createGame(startFen, { initialMs, incrementMs: 0 }, red.id, black.id);
+  owned.push(created.gameId);
+  await service.activateGame(created.gameId, now);
   return created.gameId;
 }
 
@@ -22,6 +35,7 @@ afterAll(async () => {
     await testPrisma.gameSnapshot.deleteMany({ where: { gameId: { in: owned } } });
     await testPrisma.game.deleteMany({ where: { id: { in: owned } } });
   }
+  if (ownedUsers.length) await testPrisma.user.deleteMany({ where: { id: { in: ownedUsers } } });
   await testPrisma.$disconnect();
 });
 
@@ -80,5 +94,75 @@ describe('GamesService transactional persistence', () => {
     expect(row.resultWinner).toBe('BLACK');
     expect(row.resultReason).toBe('CHECKMATE');
     expect(row.finishedAt).not.toBeNull();
+  });
+});
+
+describe('GamesService clock pausing on disconnect', () => {
+  it('freezes the on-turn color\'s remaining time at the pause instant', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(60_000, t0);
+    const paused = await service.pauseClockForDisconnect(gameId, 'red', t0 + 5_000);
+    expect(paused?.clocks).toMatchObject({
+      paused: true, activeColor: 'red', redRemainingMs: 55_000, blackRemainingMs: 60_000,
+    });
+  });
+
+  it('ignores a pause request for the color not on turn', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(60_000, t0);
+    expect(await service.pauseClockForDisconnect(gameId, 'black', t0 + 5_000)).toBeNull();
+    const row = await testPrisma.game.findUniqueOrThrow({ where: { id: gameId } });
+    expect(row.clockPausedAt).toBeNull();
+  });
+
+  it('is idempotent: pausing an already-paused clock is a no-op', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(60_000, t0);
+    await service.pauseClockForDisconnect(gameId, 'red', t0 + 5_000);
+    expect(await service.pauseClockForDisconnect(gameId, 'red', t0 + 9_000)).toBeNull();
+    const row = await testPrisma.game.findUniqueOrThrow({ where: { id: gameId } });
+    expect(row.clockPausedAt?.getTime()).toBe(t0 + 5_000);
+  });
+
+  it('resumes by shifting turnStartedAt forward by exactly the paused duration', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(60_000, t0);
+    await service.pauseClockForDisconnect(gameId, 'red', t0 + 5_000);
+    const resumed = await service.resumeClockForReconnect(gameId, 'red', t0 + 65_000);
+    // redRemainingMs is only rebanked by a move, never by pause/resume — turnStartedAt shifts
+    // forward by the paused duration instead, so elapsed-time math (server or client) recovers
+    // the same 55s remaining without the server double-accounting the banked time.
+    expect(resumed?.clocks).toMatchObject({ paused: false, redRemainingMs: 60_000, turnStartedAt: t0 + 60_000 });
+    const row = await testPrisma.game.findUniqueOrThrow({ where: { id: gameId } });
+    expect(row.clockPausedAt).toBeNull();
+    expect(row.turnStartedAt?.getTime()).toBe(t0 + 60_000);
+  });
+
+  it('ignores a resume request when the clock is not currently paused', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(60_000, t0);
+    expect(await service.resumeClockForReconnect(gameId, 'red', t0 + 1_000)).toBeNull();
+  });
+
+  it('keeps checkTimeout from expiring a paused clock no matter how long the disconnect lasts', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(300, t0);
+    await service.pauseClockForDisconnect(gameId, 'red', t0 + 100);
+    expect(await service.checkTimeout(gameId, t0 + 10_000)).toBe(false);
+    const row = await testPrisma.game.findUniqueOrThrow({ where: { id: gameId } });
+    expect(row.status).toBe('ACTIVE');
+  });
+
+  it('resumes ticking toward timeout after reconnect, excluding the paused window', async () => {
+    const t0 = Date.now();
+    const gameId = await timedGame(300, t0);
+    await service.pauseClockForDisconnect(gameId, 'red', t0 + 100); // 200ms banked
+    await service.resumeClockForReconnect(gameId, 'red', t0 + 10_100); // 10s disconnect excluded
+    expect(await service.checkTimeout(gameId, t0 + 10_250)).toBe(false); // only 150ms elapsed since resume
+    expect(await service.checkTimeout(gameId, t0 + 10_350)).toBe(true); // 250ms elapsed > 200ms banked
+    const row = await testPrisma.game.findUniqueOrThrow({ where: { id: gameId } });
+    expect(row.status).toBe('FINISHED');
+    expect(row.resultReason).toBe('TIMEOUT');
+    expect(row.resultWinner).toBe('BLACK');
   });
 });

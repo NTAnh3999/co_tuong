@@ -80,6 +80,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const state = this.gamePresence(gameId);
       state.set(color, { connected: false, disconnectedAt: Date.now() });
       this.broadcastPresence(gameId);
+      // The game may have been deleted between the disconnect firing and this transaction
+      // running (e.g. test cleanup, or a finished game being purged) — treat that the same as
+      // "nothing to pause" rather than letting an unhandled rejection escape the handler.
+      const paused = await this.games.pauseClockForDisconnect(gameId, color).catch(() => null);
+      if (paused !== null) this.server.to(gameId).emit('game:state', paused);
     }
   }
 
@@ -117,10 +122,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
     await client.join(parsed.data.gameId);
-    const snapshot = await this.games.getSnapshot(parsed.data.gameId);
     client.data.joinedGames!.add(parsed.data.gameId);
     this.gamePresence(parsed.data.gameId).set(color, { connected: true, disconnectedAt: null });
-    client.emit('game:state', snapshot);
+    // Resuming (if this color's clock was paused for their disconnect) already reads a fresh
+    // snapshot, so broadcast that one instead of a separate, potentially-stale read.
+    const resumed = await this.games.resumeClockForReconnect(parsed.data.gameId, color);
+    if (resumed !== null) this.server.to(parsed.data.gameId).emit('game:state', resumed);
+    else client.emit('game:state', await this.games.getSnapshot(parsed.data.gameId));
     this.broadcastPresence(parsed.data.gameId);
   }
 

@@ -15,8 +15,13 @@ export class ClockScheduler implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     const activeGames = await this.prisma.game.findMany({ where: { status: 'ACTIVE' }, select: { id: true } });
     for (const { id } of activeGames) {
-      await this.games.checkTimeout(id, Date.now());
-      await this.scheduleFromCurrentState(id);
+      try {
+        await this.games.checkTimeout(id, Date.now());
+        await this.scheduleFromCurrentState(id);
+      } catch {
+        // The game may have been deleted between the findMany above and this iteration (e.g. a
+        // concurrently-running test's cleanup) — skip it rather than aborting the rest of startup.
+      }
     }
   }
 
@@ -69,7 +74,7 @@ export class ClockScheduler implements OnModuleInit, OnModuleDestroy {
 
   private deadline(snapshot: GameSnapshot): number | null {
     const clock = snapshot.clocks;
-    if (clock === null) return null;
+    if (clock === null || clock.paused === true) return null;
     if (snapshot.moves.length < 2) return clock.turnStartedAt + FIRST_MOVE_LIMIT_MS + 1;
     const activeRemaining = clock.activeColor === 'red' ? clock.redRemainingMs : clock.blackRemainingMs;
     return clock.turnStartedAt + activeRemaining;

@@ -21,6 +21,10 @@ export const clockStateSchema = z.object({
   blackRemainingMs: z.number().int().nonnegative(),
   activeColor: colorSchema,
   turnStartedAt: z.number().int().nonnegative(),
+  // True while the active color's player is disconnected: the clock is frozen (remaining
+  // fields already reflect elapsed time up to the pause), so clients must stop ticking it down
+  // locally. Optional for backwards compatibility with snapshots created before pausing existed.
+  paused: z.boolean().optional(),
 });
 export type ClockState = z.infer<typeof clockStateSchema>;
 

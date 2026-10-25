@@ -38,6 +38,13 @@ async function makeGame(redId: string, blackId: string): Promise<string> {
   return gameId;
 }
 
+async function makeTimedGame(redId: string, blackId: string, initialMs = 60_000): Promise<string> {
+  const { gameId } = await games.createGame(startFen, { initialMs, incrementMs: 0 }, redId, blackId);
+  gameIds.push(gameId);
+  await games.activateGame(gameId);
+  return gameId;
+}
+
 function once<T = unknown>(socket: ClientSocket, event: string, timeoutMs = 4_000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${event}`)), timeoutMs);
@@ -390,5 +397,26 @@ describe('GameGateway realtime lifecycle (SYNC-01/02/03, ROOM-02)', () => {
     blackSocket = await connect(url, black.cookie);
     blackSocket.emit('game:join', { gameId });
     expect(await online).toMatchObject({ gameId, black: { connected: true, disconnectedAt: null } });
+  });
+
+  it('pauses the on-turn player\'s clock when they disconnect, and resumes it (excluding the paused window) when they rejoin', async () => {
+    const red = await makePlayer('ClockPauseRed');
+    const black = await makePlayer('ClockPauseBlack');
+    const gameId = await makeTimedGame(red.id, black.id, 60_000);
+    type SnapshotPayload = { clocks: { paused?: boolean; activeColor: string; redRemainingMs: number } | null };
+    let redSocket = await connect(url, red.cookie);
+    const blackSocket = await connect(url, black.cookie);
+    redSocket.emit('game:join', { gameId });
+    blackSocket.emit('game:join', { gameId });
+    await Promise.all([once(redSocket, 'game:state'), once(blackSocket, 'game:state')]);
+
+    const paused = onceWhere<SnapshotPayload>(blackSocket, 'game:state', (payload) => payload.clocks?.paused === true);
+    redSocket.disconnect();
+    expect(await paused).toMatchObject({ clocks: { paused: true, activeColor: 'red' } });
+
+    const resumed = onceWhere<SnapshotPayload>(blackSocket, 'game:state', (payload) => payload.clocks?.paused === false);
+    redSocket = await connect(url, red.cookie);
+    redSocket.emit('game:join', { gameId });
+    expect(await resumed).toMatchObject({ clocks: { paused: false, activeColor: 'red' } });
   });
 });

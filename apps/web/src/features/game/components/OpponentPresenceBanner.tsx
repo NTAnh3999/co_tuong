@@ -22,14 +22,19 @@ export function OpponentPresenceBanner({ disconnectedAt, onClaimWin }: OpponentP
   const canClaim = remainingMs <= 0;
 
   return (
-    <div role="status" className="flex w-full flex-col items-center gap-2 rounded-md bg-amber-100 px-4 py-3 text-center text-sm text-amber-950">
+    <div role="status" className="flex w-full flex-col items-center gap-2 rounded-md bg-amber-100 px-4 py-3 text-center text-amber-950">
       {canClaim ? (
         <>
-          <p>Đối phương đã mất kết nối quá lâu. Bạn có thể chờ thêm hoặc tuyên bố thắng.</p>
+          <p className="text-sm">Đối phương đã mất kết nối quá lâu. Bạn có thể chờ thêm hoặc tuyên bố thắng.</p>
           <Button size="sm" variant="destructive" onClick={onClaimWin}>Tuyên bố thắng</Button>
         </>
       ) : (
-        <p>Đối phương bị mất kết nối. Đang chờ kết nối lại... ({Math.ceil(remainingMs / 1000)}s)</p>
+        <>
+          <p className="text-sm">Đối phương bị mất kết nối, đang chờ kết nối lại...</p>
+          <p className="font-mono text-3xl font-bold tabular-nums" aria-label={`Còn ${Math.ceil(remainingMs / 1000)} giây`}>
+            {Math.ceil(remainingMs / 1000)}s
+          </p>
+        </>
       )}
     </div>
   );

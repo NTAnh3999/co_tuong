@@ -14,15 +14,21 @@ describe('OpponentPresenceBanner', () => {
     vi.useRealTimers();
   });
 
-  it('counts down while under the abandonment threshold and disables claiming', () => {
+  it('counts down second by second while under the abandonment threshold and disables claiming', () => {
     const onClaimWin = vi.fn();
     const disconnectedAt = Date.now();
     render(<OpponentPresenceBanner disconnectedAt={disconnectedAt} onClaimWin={onClaimWin} />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Đang chờ kết nối lại');
+    expect(screen.getByRole('status')).toHaveTextContent('đang chờ kết nối lại');
+    expect(screen.getByRole('status')).toHaveTextContent('60s');
     expect(screen.queryByRole('button', { name: 'Tuyên bố thắng' })).not.toBeInTheDocument();
 
-    act(() => { vi.advanceTimersByTime(ABANDONMENT_THRESHOLD_MS + 1_000); });
+    act(() => { vi.advanceTimersByTime(1_000); });
+    expect(screen.getByRole('status')).toHaveTextContent('59s');
+    act(() => { vi.advanceTimersByTime(10_000); });
+    expect(screen.getByRole('status')).toHaveTextContent('49s');
+
+    act(() => { vi.advanceTimersByTime(ABANDONMENT_THRESHOLD_MS); });
     expect(screen.getByRole('status')).toHaveTextContent('mất kết nối quá lâu');
   });
 

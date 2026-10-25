@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import {
+  ABANDONMENT_THRESHOLD_MS,
   gameClaimWinEventSchema,
   gameDrawEventSchema,
   gameJoinEventSchema,
@@ -25,7 +26,7 @@ import { resolveSessionFromCookieHeader } from '../sessions/session-identity.js'
 import { RoomsService } from '../rooms/rooms.service.js';
 import { GamesService } from './games.service.js';
 
-export const ABANDONMENT_THRESHOLD_MS = 60_000;
+export { ABANDONMENT_THRESHOLD_MS };
 
 type Presence = { connected: boolean; disconnectedAt: number | null };
 type AuthenticatedSocket = Socket & {
@@ -78,6 +79,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (color === null) continue;
       const state = this.gamePresence(gameId);
       state.set(color, { connected: false, disconnectedAt: Date.now() });
+      this.broadcastPresence(gameId);
     }
   }
 
@@ -119,6 +121,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.data.joinedGames!.add(parsed.data.gameId);
     this.gamePresence(parsed.data.gameId).set(color, { connected: true, disconnectedAt: null });
     client.emit('game:state', snapshot);
+    this.broadcastPresence(parsed.data.gameId);
   }
 
   @SubscribeMessage('game:move')
@@ -230,5 +233,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.presence.set(gameId, state);
     }
     return state;
+  }
+
+  // No entry yet means no disconnect has ever been recorded for that color in this process,
+  // so it defaults to connected rather than showing a spurious "offline" state.
+  private broadcastPresence(gameId: string): void {
+    const state = this.presence.get(gameId);
+    const fallback: Presence = { connected: true, disconnectedAt: null };
+    this.server.to(gameId).emit('game:presence', {
+      gameId,
+      red: state?.get('red') ?? fallback,
+      black: state?.get('black') ?? fallback,
+    });
   }
 }

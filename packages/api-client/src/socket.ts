@@ -13,6 +13,7 @@ export interface GameSocketHandlers {
   onMoveAccepted?: (payload: ServerPayload<'game:move:accepted'>) => void;
   onMoveRejected?: (payload: ServerPayload<'game:move:rejected'>) => void;
   onGameFinished?: (payload: ServerPayload<'game:finished'>) => void;
+  onGamePresence?: (payload: ServerPayload<'game:presence'>) => void;
 }
 
 export interface GameSocket {
@@ -43,6 +44,7 @@ export function createGameSocket(baseUrl: string, handlers: GameSocketHandlers):
   socket.on('game:move:accepted', (payload) => handlers.onMoveAccepted?.(payload));
   socket.on('game:move:rejected', (payload) => handlers.onMoveRejected?.(payload));
   socket.on('game:finished', (payload) => handlers.onGameFinished?.(payload));
+  socket.on('game:presence', (payload) => handlers.onGamePresence?.(payload));
 
   return {
     connect() {

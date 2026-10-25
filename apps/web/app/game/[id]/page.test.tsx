@@ -10,10 +10,11 @@ const harness = vi.hoisted(() => ({
   controller: null as unknown,
   roomCode: null as string | null,
   routerPush: vi.fn(),
+  userId: 'spectator' as string,
 }))
 
 vi.mock('@/src/features/session/use-session', () => ({
-  useSession: () => ({ user: { id: 'spectator', nickname: 'Spectator', type: 'guest' }, status: 'ready' }),
+  useSession: () => ({ user: { id: harness.userId, nickname: 'Spectator', type: 'guest' }, status: 'ready' }),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -47,7 +48,7 @@ function makeState(overrides: Partial<OnlineGameControllerState> = {}): OnlineGa
   return {
     position: createInitialPosition(), history: [], lastMove: null, selectedSquare: null, legalTargets: [],
     orientation: 'red', result: null, clocks: null, gameVersion: 0, connectionStatus: 'connected',
-    pendingMoveId: null, lastRejection: null, ...overrides,
+    pendingMoveId: null, lastRejection: null, presence: null, ...overrides,
   }
 }
 
@@ -69,10 +70,11 @@ beforeEach(() => {
   harness.listeners.clear()
   harness.roomCode = null
   harness.routerPush = vi.fn()
+  harness.userId = 'spectator'
   harness.controller = {
     getState: () => harness.state!,
     subscribe: (listener: () => void) => { harness.listeners.add(listener); return () => harness.listeners.delete(listener) },
-    selectSquare: vi.fn(), submitMove: vi.fn(), flip: vi.fn(), resign: vi.fn(), offerDraw: vi.fn(), connect: vi.fn(), dispose: vi.fn(),
+    selectSquare: vi.fn(), submitMove: vi.fn(), flip: vi.fn(), resign: vi.fn(), offerDraw: vi.fn(), claimWin: vi.fn(), connect: vi.fn(), dispose: vi.fn(),
   }
 })
 
@@ -152,5 +154,22 @@ describe('SYNC-03: /game/[id] online page', () => {
     })
     await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
     expect(harness.routerPush).toHaveBeenCalledWith('/game/game-2?room=ABCD12')
+  })
+
+  it('shows the opponent presence banner once the opponent disconnects, and claims the win once the threshold has elapsed', async () => {
+    harness.userId = 'red-player'
+    await renderGame()
+    await waitFor(() => expect(screen.getByRole('grid')).toBeInTheDocument())
+
+    act(() => {
+      harness.state = makeState({
+        presence: { red: { connected: true, disconnectedAt: null }, black: { connected: false, disconnectedAt: Date.now() - 61_000 } },
+      })
+      publish()
+    })
+
+    const claimButton = await screen.findByRole('button', { name: 'Tuyên bố thắng' })
+    claimButton.click()
+    expect((harness.controller as { claimWin: ReturnType<typeof vi.fn> }).claimWin).toHaveBeenCalledOnce()
   })
 })

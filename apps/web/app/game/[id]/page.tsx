@@ -15,6 +15,7 @@ import { ClockDisplay } from '@/src/features/game/components/ClockDisplay'
 import { ExitToLobbyButton } from '@/src/features/game/components/ExitToLobbyButton'
 import { GameStatusBanner } from '@/src/features/game/components/GameStatusBanner'
 import { MoveList } from '@/src/features/game/components/MoveList'
+import { OpponentPresenceBanner } from '@/src/features/game/components/OpponentPresenceBanner'
 import { ResultDialog } from '@/src/features/game/components/ResultDialog'
 import { Board2D } from '@/src/features/game/board/Board2D'
 import { createOnlineGameController } from '@/src/features/game/controller/online-game-controller'
@@ -133,6 +134,8 @@ function ReadyOnlineGame({ gameId, userId, roomCode }: { gameId: string; userId:
   const orientation = myColor ?? state.orientation
   const interactive = myColor !== null && myColor === state.position.turn && state.result === null && state.connectionStatus === 'connected'
   const drawOfferBy = snapshot?.drawOfferBy ?? null
+  const opponentColor: Color | null = myColor === 'red' ? 'black' : myColor === 'black' ? 'red' : null
+  const opponentPresence = opponentColor ? state.presence?.[opponentColor] ?? null : null
 
   const respondToDraw = async (action: 'accept' | 'decline') => {
     if (myColor === null) return
@@ -175,6 +178,9 @@ function ReadyOnlineGame({ gameId, userId, roomCode }: { gameId: string; userId:
       <ExitToLobbyButton />
       <section className="flex w-full max-w-2xl flex-col items-center gap-3 overflow-x-auto">
         {state.connectionStatus === 'disconnected' && <p role="alert" className="w-full rounded-md bg-amber-100 px-4 py-3 text-center text-sm text-amber-950">Mất kết nối, đang thử kết nối lại...</p>}
+        {state.connectionStatus === 'connected' && state.result === null && opponentPresence !== null && !opponentPresence.connected && opponentPresence.disconnectedAt !== null && (
+          <OpponentPresenceBanner disconnectedAt={opponentPresence.disconnectedAt} onClaimWin={() => controller.claimWin()} />
+        )}
         {showRejection && state.lastRejection && <p role="status" className="text-sm text-destructive">{rejectionText(state.lastRejection.reason)}</p>}
         <div className="flex w-full justify-center lg:h-[calc(100vh-3rem)]">
           <Board2D

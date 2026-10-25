@@ -8,7 +8,7 @@ import {
   squareToIndex,
 } from '@xq/xiangqi-core';
 import type { Color, Move, Position, Square } from '@xq/xiangqi-core';
-import type { ClockState, GameSnapshot, RejectReason } from '@xq/shared-contracts';
+import type { ColorPresence, GameSnapshot, ClockState, RejectReason } from '@xq/shared-contracts';
 import { createGameSocket } from '@xq/api-client';
 import type { GameSocket, GameSocketHandlers } from '@xq/api-client';
 import type { GameController, GameControllerState } from './game-controller.js';
@@ -19,12 +19,14 @@ export interface OnlineGameControllerState extends GameControllerState {
   readonly connectionStatus: 'connecting' | 'connected' | 'disconnected';
   readonly pendingMoveId: string | null;
   readonly lastRejection: { readonly reason: RejectReason; readonly at: number } | null;
+  readonly presence: { readonly red: ColorPresence; readonly black: ColorPresence } | null;
 }
 
 export interface OnlineGameController extends GameController {
   getState(): OnlineGameControllerState;
   connect(): void;
   dispose(): void;
+  claimWin(): void;
 }
 
 // crypto.randomUUID() is only exposed in secure contexts (HTTPS or localhost); accessing the
@@ -61,6 +63,7 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
     connectionStatus: 'connecting',
     pendingMoveId: null,
     lastRejection: null,
+    presence: null,
   }));
 
   let authoritative: Pick<OnlineGameControllerState, 'position' | 'history' | 'lastMove' | 'result' | 'clocks' | 'gameVersion'> = {
@@ -131,6 +134,10 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
     onGameFinished(payload) {
       store.setState((state) => ({ ...state, result: payload.result, gameVersion: payload.finalVersion }));
     },
+    onGamePresence(payload) {
+      if (payload.gameId !== gameId) return;
+      store.setState((state) => ({ ...state, presence: { red: payload.red, black: payload.black } }));
+    },
   };
   socket = createGameSocket(apiBaseUrl, handlers);
   let observingVisibility = false;
@@ -178,6 +185,7 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
   };
   const resign = (_color: Color): void => socket.resign(gameId);
   const offerDraw = (): void => socket.draw(gameId, 'offer');
+  const claimWin = (): void => socket.claimWin(gameId);
 
   const onVisibilityChange = (): void => {
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') socket.joinGame(gameId);
@@ -191,6 +199,7 @@ export function createOnlineGameController(gameId: string, apiBaseUrl: string): 
     flip,
     resign,
     offerDraw,
+    claimWin,
     connect() {
       if (typeof document !== 'undefined' && !observingVisibility) {
         document.addEventListener('visibilitychange', onVisibilityChange);

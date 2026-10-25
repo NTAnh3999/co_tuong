@@ -24,6 +24,9 @@ export const gameDrawEventSchema = z.object({
 });
 export const gameClaimWinEventSchema = z.object({ gameId: z.string() });
 
+/** How long a player must stay disconnected before the opponent may claim an abandonment win. */
+export const ABANDONMENT_THRESHOLD_MS = 60_000;
+
 export type RoomJoinEvent = z.infer<typeof roomJoinEventSchema>;
 export type GameJoinEvent = z.infer<typeof gameJoinEventSchema>;
 export type GameMoveEvent = z.infer<typeof gameMoveEventSchema>;
@@ -46,6 +49,9 @@ export type GameMoveRejectedPayload = {
 };
 
 export type SocketMembershipRejectedPayload = { reason: string };
+
+export type ColorPresence = { connected: boolean; disconnectedAt: number | null };
+export type GamePresencePayload = { gameId: string; red: ColorPresence; black: ColorPresence };
 
 export type GameFinishedPayload = {
   result: z.infer<typeof gameResultSchema>;
@@ -74,4 +80,5 @@ export interface ServerToClientEvents {
   'game:move:rejected': (payload: GameMoveRejectedPayload) => void;
   'game:state': (snapshot: GameStatePayload) => void;
   'game:finished': (payload: GameFinishedPayload) => void;
+  'game:presence': (payload: GamePresencePayload) => void;
 }

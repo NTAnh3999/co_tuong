@@ -11,6 +11,7 @@ const socketMock = vi.hoisted(() => ({
     submitMove: vi.fn(),
     resign: vi.fn(),
     draw: vi.fn(),
+    claimWin: vi.fn(),
     disconnect: vi.fn(),
   },
 }));
@@ -22,7 +23,6 @@ vi.mock('@xq/api-client', () => ({
       ...socketMock.methods,
       joinRoom: vi.fn(),
       sync: vi.fn(),
-      claimWin: vi.fn(),
       get connected() { return true; },
     };
   },
@@ -131,6 +131,36 @@ describe('SYNC-03: OnlineGameController', () => {
     expect(socketMock.methods.resign).toHaveBeenCalledWith('game-1');
     expect(socketMock.methods.draw).toHaveBeenCalledWith('game-1', 'offer');
     expect(controller.getState().result).toBeNull();
+    controller.dispose();
+  });
+
+  it('tracks opponent presence from game:presence and forwards claim-win requests', () => {
+    const controller = createOnlineGameController('game-1', 'http://api');
+    expect(controller.getState().presence).toBeNull();
+
+    socketMock.handlers?.onGamePresence?.({
+      gameId: 'game-1',
+      red: { connected: true, disconnectedAt: null },
+      black: { connected: false, disconnectedAt: 123 },
+    });
+    expect(controller.getState().presence).toEqual({
+      red: { connected: true, disconnectedAt: null },
+      black: { connected: false, disconnectedAt: 123 },
+    });
+
+    // A presence update for a different game (e.g. a stale listener) must not leak in.
+    socketMock.handlers?.onGamePresence?.({
+      gameId: 'other-game',
+      red: { connected: false, disconnectedAt: 456 },
+      black: { connected: true, disconnectedAt: null },
+    });
+    expect(controller.getState().presence).toEqual({
+      red: { connected: true, disconnectedAt: null },
+      black: { connected: false, disconnectedAt: 123 },
+    });
+
+    controller.claimWin();
+    expect(socketMock.methods.claimWin).toHaveBeenCalledWith('game-1');
     controller.dispose();
   });
 });

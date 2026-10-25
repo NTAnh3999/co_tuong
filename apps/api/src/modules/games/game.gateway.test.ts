@@ -48,6 +48,26 @@ function once<T = unknown>(socket: ClientSocket, event: string, timeoutMs = 4_00
   });
 }
 
+// Two players joining concurrently each trigger their own game:presence broadcast, and the
+// server doesn't guarantee which socket's join is processed first, so a listener waiting for
+// "the next presence event" can otherwise catch a stale one from the other player's own join.
+// Waiting for a specific predicate instead sidesteps that ordering race entirely.
+function onceWhere<T = unknown>(socket: ClientSocket, event: string, predicate: (value: T) => boolean, timeoutMs = 4_000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(event, handler);
+      reject(new Error(`Timed out waiting for ${event} matching predicate`));
+    }, timeoutMs);
+    function handler(value: T): void {
+      if (!predicate(value)) return;
+      clearTimeout(timer);
+      socket.off(event, handler);
+      resolve(value);
+    }
+    socket.on(event, handler);
+  });
+}
+
 function connect(url: string, cookie?: string): Promise<ClientSocket> {
   const socket = io(url, {
     transports: ['websocket'],
@@ -345,5 +365,30 @@ describe('GameGateway realtime lifecycle (SYNC-01/02/03, ROOM-02)', () => {
     const abandoned = once(redClaimSocket, 'game:finished');
     redClaimSocket.emit('game:claim-win', { gameId: claimGame });
     expect(await abandoned).toMatchObject({ result: { winner: 'red', reason: 'ABANDONMENT' } });
+  });
+
+  it('broadcasts game:presence to the other player when a socket disconnects and again when it rejoins', async () => {
+    const red = await makePlayer('PresenceRed');
+    const black = await makePlayer('PresenceBlack');
+    const gameId = await makeGame(red.id, black.id);
+    const redSocket = await connect(url, red.cookie);
+    let blackSocket = await connect(url, black.cookie);
+    type PresencePayload = { gameId: string; red: { connected: boolean }; black: { connected: boolean; disconnectedAt: number | null } };
+    redSocket.emit('game:join', { gameId });
+    blackSocket.emit('game:join', { gameId });
+    await Promise.all([once(redSocket, 'game:state'), once(blackSocket, 'game:state')]);
+
+    const offline = onceWhere<PresencePayload>(redSocket, 'game:presence', (payload) => payload.gameId === gameId && !payload.black.connected);
+    blackSocket.disconnect();
+    expect(await offline).toMatchObject({
+      gameId,
+      red: { connected: true, disconnectedAt: null },
+      black: { connected: false },
+    });
+
+    const online = onceWhere<PresencePayload>(redSocket, 'game:presence', (payload) => payload.gameId === gameId && payload.black.connected);
+    blackSocket = await connect(url, black.cookie);
+    blackSocket.emit('game:join', { gameId });
+    expect(await online).toMatchObject({ gameId, black: { connected: true, disconnectedAt: null } });
   });
 });

@@ -79,6 +79,7 @@ describe('createGameSocket', () => {
       onMoveAccepted: vi.fn(),
       onMoveRejected: vi.fn(),
       onGameFinished: vi.fn(),
+      onGamePresence: vi.fn(),
     };
     createGameSocket('https://example.test', handlers);
 
@@ -90,6 +91,7 @@ describe('createGameSocket', () => {
       'game:move:accepted',
       'game:move:rejected',
       'game:finished',
+      'game:presence',
     ]);
 
     listeners.get('connect')?.();
@@ -99,11 +101,13 @@ describe('createGameSocket', () => {
     const accepted = { moveId: 'm1' };
     const rejected = { moveId: 'm2' };
     const finished = { finalVersion: 9 };
+    const presence = { gameId: 'g1', red: { connected: true, disconnectedAt: null }, black: { connected: false, disconnectedAt: 123 } };
     listeners.get('room:state')?.(roomState);
     listeners.get('game:state')?.(gameState);
     listeners.get('game:move:accepted')?.(accepted);
     listeners.get('game:move:rejected')?.(rejected);
     listeners.get('game:finished')?.(finished);
+    listeners.get('game:presence')?.(presence);
 
     expect(handlers.onConnect).toHaveBeenCalledOnce();
     expect(handlers.onDisconnect).toHaveBeenCalledWith('transport close');
@@ -112,6 +116,7 @@ describe('createGameSocket', () => {
     expect(handlers.onMoveAccepted).toHaveBeenCalledWith(accepted);
     expect(handlers.onMoveRejected).toHaveBeenCalledWith(rejected);
     expect(handlers.onGameFinished).toHaveBeenCalledWith(finished);
+    expect(handlers.onGamePresence).toHaveBeenCalledWith(presence);
   });
 
   it('disconnects the underlying socket and exposes its connection state', () => {
